@@ -459,30 +459,8 @@ body {
   box-shadow: none;
 }
 
-/* SWAP BLOCK */
+/* Secondary (blue) button */
 
-.swap-wrap {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(55, 65, 81, 0.8);
-}
-
-.swap-label-row {
-  margin-bottom: 4px;
-}
-
-.swap-input-row {
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.swap-input {
-  flex: 1;
-}
-
-/* Blue secondary button */
 .btn-secondary {
   width: 100%;
   border-radius: 999px;
@@ -649,6 +627,163 @@ body {
 
 .text-link:hover {
   text-decoration: underline;
+}
+
+/* ===== SWAP MODAL OVERLAY ===== */
+
+.swap-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+}
+
+.swap-modal.open {
+  display: block;
+}
+
+.swap-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(12px);
+}
+
+.swap-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(420px, 100% - 32px);
+  transform: translate(-50%, -50%) scale(0.96);
+  border-radius: 24px;
+  background: radial-gradient(circle at top, #020617 0, #020617 60%, #020617 100%);
+  border: 1px solid rgba(51, 65, 85, 0.9);
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+  animation: swapIn 0.22s ease-out forwards;
+}
+
+/* HEADER & TABS */
+
+.swap-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px 6px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+}
+
+.swap-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.swap-tab {
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  background: transparent;
+  color: #9ca3af;
+}
+
+.swap-tab.active {
+  background: rgba(37, 99, 235, 0.25);
+  color: #e5e7eb;
+}
+
+.swap-close {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* BODY */
+
+.swap-body {
+  padding: 10px 14px 14px;
+}
+
+.swap-row-label {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+  margin-top: 4px;
+}
+
+.swap-box {
+  background: rgba(15, 23, 42, 0.96);
+  border-radius: 18px;
+  padding: 8px 10px;
+  border: 1px solid rgba(51, 65, 85, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.swap-amount {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.swap-input-field {
+  border: none;
+  background: transparent;
+  color: #f9fafb;
+  font-size: 18px;
+  outline: none;
+  width: 120px;
+}
+
+.swap-input-field::placeholder {
+  color: #6b7280;
+}
+
+.swap-buy-amount {
+  font-size: 18px;
+}
+
+.swap-amount-usd {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.swap-token-pill {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(37, 99, 235, 0.6);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.token-symbol {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.swap-estimate {
+  font-size: 11px;
+  color: #9ca3af;
+  margin: 6px 0 8px;
+}
+
+/* Animasi modal */
+
+@keyframes swapIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -54%) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 /* RESPONSIVE */

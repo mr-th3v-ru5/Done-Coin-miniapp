@@ -1,12 +1,12 @@
 // bet.js — DONE BTC Prediction & ETH->DONE swap on Base
 
 (function () {
-  // ====== CONTRACT ADDRESSES ======
-  const DONE_TOKEN_ADDRESS = "0x3Da0Da9414D02c1E4cc4526a5a24F5eeEbfCEAd4";
-  const BET_CONTRACT_ADDRESS = "0xC107CDB70bC93912Aa6765C3a66Dd88cEE1aCDf0";
+  // ====== CONTRACT ADDRESSES (lowercase) ======
+  const DONE_TOKEN_ADDRESS = "0x3da0da9414d02c1e4cc4526a5a24f5eeebfcead4";
+  const BET_CONTRACT_ADDRESS = "0xc107cdb70bc93912aa6765c3a66dd88cee1acdf0";
 
   // Uniswap V2 router on Base
-  const UNISWAP_V2_ROUTER = "0x4752ba5DBc23f44d87826276BF6Fd6b1C372aD24";
+  const UNISWAP_V2_ROUTER = "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24";
   const WETH_ADDRESS = "0x4200000000000000000000000000000000000006";
 
   // ====== ABIs ======
@@ -80,11 +80,17 @@
     els.btnUp = document.getElementById("btn-up");
     els.btnDown = document.getElementById("btn-down");
 
-    // SWAP
+    // SWAP elements
     els.swapAmountEth = document.getElementById("swap-amount-eth");
     els.swapEstimateDone = document.getElementById("swap-estimate-done");
     els.btnSwap = document.getElementById("btn-swap");
     els.swapStatus = document.getElementById("swap-status");
+
+    // swap modal
+    els.swapModal = document.getElementById("swap-modal");
+    els.swapBackdrop = document.getElementById("swap-backdrop");
+    els.swapClose = document.getElementById("swap-close");
+    els.btnOpenSwap = document.getElementById("btn-open-swap");
 
     if (isMini && els.walletHint) {
       els.walletHint.textContent =
@@ -316,6 +322,26 @@
     }
     if (els.btnSwap) {
       els.btnSwap.addEventListener("click", handleSwap);
+    }
+
+    if (els.btnOpenSwap && els.swapModal) {
+      els.btnOpenSwap.addEventListener("click", () => {
+        els.swapModal.classList.add("open");
+        setSwapStatus("");
+      });
+    }
+
+    if (els.swapClose) {
+      els.swapClose.addEventListener("click", closeSwapModal);
+    }
+    if (els.swapBackdrop) {
+      els.swapBackdrop.addEventListener("click", closeSwapModal);
+    }
+  }
+
+  function closeSwapModal() {
+    if (els.swapModal) {
+      els.swapModal.classList.remove("open");
     }
   }
 
