@@ -8,11 +8,7 @@
     wallet: null
   };
 
-  // Same origin as mini app deployment
-  const ROOT_URL = window.location.origin;
-  const BET_DAPP_URL = ROOT_URL + "/bet.html?source=mini";
-
-  // airdrop contract address if you later want on-chain claim
+  // airdrop contract address (for future on-chain claim hooks)
   const AIRDROP_CONTRACT_ADDRESS =
     "0x1df8DcCAD57939BaB8Ae0f3406Eaa868887E03bb";
 
@@ -45,19 +41,12 @@
     els.viewAirdrop = document.getElementById("view-airdrop");
     els.viewBet = document.getElementById("view-bet");
 
-    // bet open
-    els.betOpenBtn = document.getElementById("btn-open-bet");
-    els.miniBtcPrice = document.getElementById("mini-btc-price");
-
     setupTabs();
     setupSteps();
-    setupBetButton();
     detectContext();
-    startMiniTicker();
   });
 
-  // ========== TABS ==========
-
+  // ====== TABS ======
   function setupTabs() {
     if (!els.tabAirdrop || !els.tabBet || !els.viewAirdrop || !els.viewBet)
       return;
@@ -77,8 +66,7 @@
     });
   }
 
-  // ========== QUEST STEPS ==========
-
+  // ====== QUEST STEPS ======
   function setupSteps() {
     if (!els.steps || !els.steps.length) return;
 
@@ -105,17 +93,7 @@
     els.progressLabel.textContent = `${done} / ${total} steps complete`;
   }
 
-  // ========== BET BUTTON ==========
-
-  function setupBetButton() {
-    if (!els.betOpenBtn) return;
-    els.betOpenBtn.addEventListener("click", () => {
-      window.open(BET_DAPP_URL, "_blank");
-    });
-  }
-
-  // ========== CONTEXT (FID + WALLET) ==========
-
+  // ====== CONTEXT (FID + WALLET) ======
   function detectContext() {
     try {
       const params = new URLSearchParams(window.location.search || "");
@@ -168,15 +146,14 @@
     return addr.slice(0, 6) + "…" + addr.slice(-4);
   }
 
-  // ========== NEYNAR SCORE (OPTIONAL) ==========
-
+  // ====== NEYNAR SCORE (OPTIONAL) ======
   async function fetchNeynarScore(fid) {
     if (!fid || !els.scoreVal) return;
 
     try {
       els.scoreVal.textContent = "…";
 
-      // assumes you have /api/neynar-score?fid=... on your backend
+      // assumes backend endpoint /api/neynar-score?fid=...
       const res = await fetch(`/api/neynar-score?fid=${encodeURIComponent(fid)}`);
       if (!res.ok) throw new Error("HTTP " + res.status);
 
@@ -205,29 +182,6 @@
       if (els.claimStatus)
         els.claimStatus.textContent =
           "Failed to load Neynar score. Please try again later.";
-    }
-  }
-
-  // ========== SMALL BTC TICKER ON BET TAB ==========
-
-  function startMiniTicker() {
-    if (!els.miniBtcPrice) return;
-    updateMiniPrice();
-    setInterval(updateMiniPrice, 10000);
-  }
-
-  async function updateMiniPrice() {
-    if (!els.miniBtcPrice) return;
-    try {
-      const res = await fetch(
-        "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-      );
-      const data = await res.json();
-      const price = parseFloat(data.price || "0");
-      if (!isFinite(price) || price <= 0) return;
-      els.miniBtcPrice.textContent = price.toFixed(2);
-    } catch (e) {
-      console.warn("updateMiniPrice error:", e);
     }
   }
 })();
