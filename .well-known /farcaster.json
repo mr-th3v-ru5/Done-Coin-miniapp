@@ -9,8 +9,8 @@
     "splashImageUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
     "splashBackgroundColor": "#050816",
     "webhookUrl": "https://done-coin-miniapp.vercel.app/api/webhook",
-    "subtitle": "Predict BTC, earn $DONE",
-    "description": "DONE COIN is a mini app for simple onchain BTC predictions on Base. Place 60-second bets using $DONE, climb the leaderboard, and share wins with your Farcaster friends.",
+    "subtitle": "Predict BTC, earn DONE",
+    "description": "DONE COIN is a mini app for simple onchain BTC predictions on Base. Place 60-second bets using DONE, climb the leaderboard, and share wins with your Farcaster friends.",
     "primaryCategory": "games",
     "screenshotUrls": [
       "https://done-coin-miniapp.vercel.app/logo.jpg"
