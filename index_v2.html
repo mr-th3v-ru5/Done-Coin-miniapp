@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+  <title>DONE Hub — $DONE Airdrop & Bet on Base</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="bet-body">
+  <div class="bet-shell">
+    <div class="bet-card hub-card">
+      <!-- HEADER -->
+      <header class="bet-header">
+        <div class="bet-brand">
+          <div class="bet-logo">D</div>
+          <div class="bet-title-block">
+            <div class="bet-title">DONE Hub</div>
+            <div class="bet-subtitle">$DONE Airdrop &amp; Bet on Base</div>
+          </div>
+        </div>
+        <div class="bet-header-right">
+          <span class="chip chip-score" id="score-pill">
+            Neynar score: <span id="score-val">—</span>
+          </span>
+        </div>
+      </header>
+
+      <!-- TABS -->
+      <nav class="hub-tabs">
+        <button class="hub-tab active" id="tab-airdrop">Airdrop Quest</button>
+        <button class="hub-tab" id="tab-bet">Bet &amp; Earn</button>
+      </nav>
+
+      <!-- AIRDROP VIEW -->
+      <section class="bet-section" id="view-airdrop">
+        <!-- Farcaster -->
+        <div class="bet-section-head">
+          <h2 class="bet-section-title">Farcaster</h2>
+          <span class="bet-section-caption">
+            we read your FID &amp; score to protect the airdrop
+          </span>
+        </div>
+        <div class="bet-row">
+          <span class="bet-row-label">User</span>
+          <span class="bet-row-value" id="fc-user">unknown</span>
+        </div>
+        <div class="bet-row">
+          <span class="bet-row-label">FID</span>
+          <span class="bet-row-value" id="fid-label">unknown</span>
+        </div>
+        <p class="bet-hint" id="fc-hint">
+          If your FID is not detected, the mini app is not receiving it yet.
+          Make sure the integration passes <code>fid</code> / <code>viewerFid</code> in the URL.
+        </p>
+
+        <!-- Wallet -->
+        <div class="bet-divider"></div>
+        <div class="bet-section-head">
+          <h2 class="bet-section-title">Wallet</h2>
+        </div>
+        <div class="bet-row">
+          <span class="bet-row-label">Address</span>
+          <span class="bet-row-value" id="wallet-addr">—</span>
+        </div>
+        <p class="bet-hint">
+          Use the same wallet here, in the airdrop, and in the bet contract on the Base network.
+        </p>
+
+        <!-- Quest steps -->
+        <div class="bet-divider"></div>
+        <div class="bet-section-head">
+          <h2 class="bet-section-title">Quest steps</h2>
+          <span class="bet-section-caption">
+            tick each task when you finish it
+          </span>
+        </div>
+
+        <ol class="steps">
+          <li class="step" data-step="1">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <div class="step-title">Follow DONE creator</div>
+              <div class="step-text">
+                Follow the official DONE account on Farcaster / X.
+              </div>
+            </div>
+          </li>
+          <li class="step" data-step="2">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <div class="step-title">Cast about $DONE</div>
+              <div class="step-text">
+                Post one cast about $DONE and mention your favorite community.
+              </div>
+            </div>
+          </li>
+          <li class="step" data-step="3">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <div class="step-title">Join channel / group</div>
+              <div class="step-text">
+                Join the official DONE discussion channel or group.
+              </div>
+            </div>
+          </li>
+          <li class="step" data-step="4">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <div class="step-title">Hold at least 1 DONE</div>
+              <div class="step-text">
+                Keep at least 1 DONE token in your Base wallet.
+              </div>
+            </div>
+          </li>
+        </ol>
+
+        <div class="progress-wrap">
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+          <div class="progress-label" id="progressLabel">
+            0 / 4 steps complete
+          </div>
+          <p class="bet-hint" id="progressHint">
+            Tap each step when it's done. You can still claim manually via the main website.
+          </p>
+        </div>
+
+        <!-- Claim -->
+        <div class="bet-divider"></div>
+        <div class="bet-section-head">
+          <h2 class="bet-section-title">Claim</h2>
+        </div>
+        <button class="btn-primary btn-claim" id="btn-claim" disabled>
+          🎁 Claim 1,000 DONE
+        </button>
+        <div class="status-line" id="claim-status">
+          FID is not detected yet — claim is disabled.
+        </div>
+        <p class="bet-hint">
+          Want the full experience? Open the main DONE web dApp, whitepaper and
+          community links on
+          <a
+            href="https://done-coin.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-link"
+          >
+            done-coin.vercel.app
+          </a>.
+        </p>
+      </section>
+
+      <!-- BET VIEW (FULL BET UI, INLINE) -->
+      <div id="view-bet" class="view-hidden">
+        <!-- small header row for network + connect -->
+        <section class="bet-section">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Bet &amp; earn $DONE</h2>
+            <span class="bet-section-caption">
+              BTC up/down prediction on Base
+            </span>
+          </div>
+          <div class="bet-subheader-inline">
+            <span class="chip chip-network" id="network-pill">
+              Network: <span id="network-name">—</span>
+            </span>
+            <button class="chip chip-wallet" id="btn-connect">
+              🔗 Connect
+            </button>
+          </div>
+          <p class="bet-hint" id="wallet-hint">
+            In mini app mode you use the wallet from your Farcaster account.
+            To change wallet, use Farcaster settings. In a normal browser you
+            can connect / disconnect freely.
+          </p>
+        </section>
+
+        <!-- ticker -->
+        <section class="bet-section bet-section-ticker">
+          <div class="bet-ticker-main">
+            <div class="bet-ticker-pair">
+              <span class="dot-live"></span>
+              <span class="pair">BTC / USDT</span>
+            </div>
+            <div class="bet-ticker-price">
+              <span id="btc-price">—</span>
+              <span id="btc-change" class="change neutral">0.00%</span>
+            </div>
+          </div>
+          <div class="bet-ticker-round">
+            <div class="round-label">Visual round timer</div>
+            <div class="round-timer" id="round-timer">60s</div>
+            <div class="round-buttons">
+              <button class="round-btn up" data-side="1" id="btn-up">
+                UP
+              </button>
+              <button class="round-btn down" data-side="0" id="btn-down">
+                DOWN
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- wallet info -->
+        <section class="bet-section">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Wallet</h2>
+          </div>
+          <div class="bet-row">
+            <span class="bet-row-label">Address</span>
+            <span class="bet-row-value" id="wallet-addr-bet">not connected</span>
+          </div>
+          <div class="bet-row">
+            <span class="bet-row-label">$DONE balance</span>
+            <span class="bet-row-value" id="done-balance">0.0</span>
+          </div>
+        </section>
+
+        <!-- mode -->
+        <section class="bet-section">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Bet mode</h2>
+            <span class="bet-section-caption">
+              choose the risk profile you like
+            </span>
+          </div>
+          <div class="bet-modes">
+            <button class="mode-chip active" data-mult="1.2" data-side="0">
+              <span class="mode-label">Safe</span>
+              <span class="mode-sub">~1.2x</span>
+            </button>
+            <button class="mode-chip" data-mult="1.5" data-side="1">
+              <span class="mode-label">Normal</span>
+              <span class="mode-sub">~1.5x</span>
+            </button>
+            <button class="mode-chip" data-mult="2.0" data-side="1">
+              <span class="mode-label">Degen</span>
+              <span class="mode-sub">2x+</span>
+            </button>
+          </div>
+          <p class="bet-hint">
+            These labels are just UI presets — the final payout is computed by
+            the DoneBtcPrediction smart contract.
+          </p>
+        </section>
+
+        <!-- amount -->
+        <section class="bet-section">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Amount</h2>
+            <span class="bet-section-caption">
+              choose how many $DONE you want to risk in this round
+            </span>
+          </div>
+
+          <div class="amount-wrap">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              id="bet-amount"
+              class="amount-input"
+              placeholder="0.00"
+            />
+            <span class="amount-unit">DONE</span>
+          </div>
+
+          <div class="qa-row">
+            <button class="qa" data-perc="10">10%</button>
+            <button class="qa" data-perc="25">25%</button>
+            <button class="qa" data-perc="50">50%</button>
+            <button class="qa" data-perc="100">MAX</button>
+          </div>
+
+          <div class="bet-info">
+            <p class="bet-hint" id="min-bet-hint">
+              Minimum bet from contract: loading…
+            </p>
+            <p class="bet-hint" id="pool-info"></p>
+            <p class="bet-hint" id="reward-preview"></p>
+            <p class="bet-hint" id="payout-preview"></p>
+          </div>
+        </section>
+
+        <!-- last round visual -->
+        <section class="bet-section">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Last round (visual)</h2>
+            <span class="bet-section-caption">
+              based on BTC / USDT price feed — off-chain preview only
+            </span>
+          </div>
+
+          <div class="round-visual">
+            <div class="bet-row">
+              <span class="bet-row-label">Direction</span>
+              <span class="bet-row-value" id="bet-direction">—</span>
+            </div>
+            <div class="bet-row">
+              <span class="bet-row-label">Entry price</span>
+              <span class="bet-row-value" id="bet-entry-price">—</span>
+            </div>
+            <div class="bet-row">
+              <span class="bet-row-label">Close price</span>
+              <span class="bet-row-value" id="bet-close-price">—</span>
+            </div>
+            <p id="bet-outcome" class="bet-outcome-text">
+              Place a bet to see the round result here.
+            </p>
+          </div>
+        </section>
+
+        <!-- action -->
+        <section class="bet-section bet-section-action">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Action</h2>
+          </div>
+
+          <!-- PLACE BET -->
+          <button class="btn-primary" id="btn-place-bet">
+            🎰 Place bet
+          </button>
+
+          <!-- OPEN SWAP MODAL -->
+          <button class="btn-secondary btn-swap-open" id="btn-open-swap">
+            🔄 Swap ETH → DONE
+          </button>
+
+          <!-- STATUS -->
+          <div class="status-line" id="bet-status">
+            Set an amount and select a mode before placing a bet.
+          </div>
+          <div class="status-line" id="swap-status"></div>
+
+          <p class="bet-hint">
+            For more advanced features, history and documentation, visit the main DONE
+            web dApp at
+            <a
+              href="https://done-coin.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-link"
+            >
+              done-coin.vercel.app
+            </a>.
+          </p>
+        </section>
+      </div>
+
+      <footer class="bet-footer">
+        DONE Hub • $DONE on Base • Use responsibly
+      </footer>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="/mini-app.js"></script>
+  <script src="/bet.js"></script>
+
+  <!-- SWAP MODAL -->
+  <div id="swap-modal" class="swap-modal">
+    <div class="swap-backdrop" id="swap-backdrop"></div>
+
+    <div class="swap-card">
+      <header class="swap-card-header">
+        <div class="swap-tabs">
+          <button class="swap-tab active">Swap</button>
+          <button class="swap-tab" disabled>Limit</button>
+          <button class="swap-tab" disabled>Buy</button>
+          <button class="swap-tab" disabled>Sell</button>
+        </div>
+        <button class="swap-close" id="swap-close">✕</button>
+      </header>
+
+      <div class="swap-body">
+        <div class="swap-row-label">Sell</div>
+        <div class="swap-box">
+          <div class="swap-amount">
+            <input
+              type="number"
+              min="0"
+              step="0.0001"
+              id="swap-amount-eth"
+              class="swap-input-field"
+              placeholder="0.0"
+            />
+            <span class="swap-amount-usd" id="swap-amount-usd">$0</span>
+          </div>
+          <div class="swap-token-pill">
+            <span class="token-symbol">ETH</span>
+          </div>
+        </div>
+
+        <div class="swap-row-label">Buy</div>
+        <div class="swap-box">
+          <div class="swap-amount">
+            <span class="swap-buy-amount" id="swap-buy-amount">0</span>
+            <span class="swap-amount-usd" id="swap-buy-usd">$0</span>
+          </div>
+          <div class="swap-token-pill">
+            <span class="token-symbol">DONE</span>
+          </div>
+        </div>
+
+        <div class="swap-estimate">
+          Estimated DONE:
+          <span id="swap-estimate-done">—</span>
+        </div>
+
+        <button class="btn-secondary" id="btn-swap">
+          🔄 Swap ETH → DONE
+        </button>
+
+        <div class="status-line" id="swap-status"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
