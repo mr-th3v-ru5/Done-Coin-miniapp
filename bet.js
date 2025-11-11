@@ -5,7 +5,8 @@
 // - Visual entry/close price around each round (frontend only)
 // - Simple BTC/USDT line chart
 // - External "Swap $DONE on Uniswap" button + copyable DONE CA
-// - Auto refresh minBet & poolBalance every 30s
+// - Auto refresh DONE pool every 30s by reading DONE balance of pool contract
+// - Minimum bet fixed to 2000 DONE (from pool contract config)
 
 (function () {
   // ====== CONFIG ======
@@ -13,6 +14,10 @@
   const BASE_CHAIN_ID = 8453;
   const DONE_TOKEN_ADDRESS = "0x3Da0Da9414D02c1E4cc4526a5a24F5eeEbfCEAd4";
   const BET_CONTRACT_ADDRESS = "0xC107CDB70bC93912Aa6765C3a66Dd88cEE1aCDf0";
+  // Kontrak pool lama yang kamu kirim (DoneBet)
+  const POOL_CONTRACT_ADDRESS = "0xa24F111Ac03D9B03fFD9E04bD7A18E65F6BFdDd7";
+  // Minimum bet berdasarkan konfigurasi kontrak pool: 2000 DONE
+  const MIN_BET_DONE = "2000";
 
   // ====== ABIs ======
 
@@ -24,8 +29,6 @@
   ];
 
   const BET_ABI = [
-    "function minBetAmount() view returns (uint256)",
-    "function poolBalance() view returns (uint256)",
     "function placeBet(uint8 side, uint256 amount) external"
   ];
 
@@ -185,36 +188,28 @@
         );
         els.doneBalance.textContent = human;
       }
+
+      // set minBetRaw fixed 2000 DONE after decimals known
+      state.minBetRaw = ethers.utils
+        .parseUnits(MIN_BET_DONE, state.doneDecimals)
+        .toString();
+      if (els.minBetHint) {
+        els.minBetHint.textContent =
+          `Minimum bet from contract: ${MIN_BET_DONE} DONE`;
+      }
     } catch (e) {
       console.warn("refreshDoneBalance error:", e);
     }
   }
 
   async function refreshPoolInfo() {
-    if (!state.signer || !BET_CONTRACT_ADDRESS) return;
+    // baca balance DONE milik kontrak pool (0xa24F...)
+    if (!state.signer && !state.provider) return;
     try {
-      const bet = new ethers.Contract(
-        BET_CONTRACT_ADDRESS,
-        BET_ABI,
-        state.signer
-      );
-
-      const [minBet, pool] = await Promise.all([
-        bet.minBetAmount(),
-        bet.poolBalance()
-      ]);
-
-      state.minBetRaw = minBet.toString();
+      const reader = state.signer || state.provider;
+      const erc20 = new ethers.Contract(DONE_TOKEN_ADDRESS, ERC20_ABI, reader);
+      const pool = await erc20.balanceOf(POOL_CONTRACT_ADDRESS);
       state.poolBalanceRaw = pool.toString();
-
-      if (els.minBetHint) {
-        const humanMin = ethers.utils.formatUnits(
-          state.minBetRaw,
-          state.doneDecimals || 18
-        );
-        els.minBetHint.textContent =
-          `Minimum bet from contract: ${humanMin} DONE`;
-      }
 
       if (els.poolInfo) {
         const humanPool = ethers.utils.formatUnits(
@@ -262,7 +257,8 @@
 
           if (els.walletAddr) els.walletAddr.textContent = "not connected";
           if (els.doneBalance) els.doneBalance.textContent = "0.0";
-          if (els.minBetHint) els.minBetHint.textContent = "Minimum bet: —";
+          if (els.minBetHint)
+            els.minBetHint.textContent = "Minimum bet from contract: —";
           if (els.poolInfo) els.poolInfo.textContent = "Pool: —";
 
           els.btnConnect.textContent = "🔗 Connect";
@@ -346,7 +342,7 @@
 
       if (poolRefreshInterval) clearInterval(poolRefreshInterval);
       poolRefreshInterval = setInterval(() => {
-        if (state.signer && state.address) {
+        if (state.signer || state.provider) {
           refreshPoolInfo();
         }
       }, 30000);
@@ -374,7 +370,7 @@
     }
     if (els.payoutPreview) {
       els.payoutPreview.textContent =
-        "Final payout (principal + reward) is calculated and sent automatically by the DoneBtcPrediction contract after the round is closed.";
+        "Final payout (principal + reward) is calculated and sent automatically by the DoneBtcPrediction smart contract after the round is closed.";
     }
   }
 
@@ -415,18 +411,16 @@
         state.doneDecimals || 18
       );
 
+      // cek minimum bet 2000 DONE
       if (state.minBetRaw) {
         const min = ethers.BigNumber.from(state.minBetRaw);
         if (amount.lt(min)) {
-          const humanMin = ethers.utils.formatUnits(
-            state.minBetRaw,
-            state.doneDecimals || 18
-          );
-          setStatus(`Bet amount is below minimum: ${humanMin} DONE`);
+          setStatus(`Bet amount is below minimum: ${MIN_BET_DONE} DONE`);
           return;
         }
       }
 
+      // cek balance user
       if (state.doneBalanceRaw) {
         const bal = ethers.BigNumber.from(state.doneBalanceRaw);
         if (bal.lt(amount)) {
@@ -441,11 +435,12 @@
         }
       }
 
+      // cek pool cukup
       if (state.poolBalanceRaw) {
         const pool = ethers.BigNumber.from(state.poolBalanceRaw);
         if (pool.isZero()) {
           setStatus(
-            "Pool is empty (0 DONE). Please wait until the contract is funded before betting."
+            "Pool is empty (0 DONE). Please wait until the pool contract is funded before betting."
           );
           return;
         }
@@ -576,7 +571,7 @@
       els.caCopy.addEventListener("click", async () => {
         try {
           if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(DONE_TOKEN_ADDRESS);
+            await navigator.clipboard.writeText(DONE_TOKEN_ADDRESS);
           }
           const original = DONE_TOKEN_ADDRESS;
           els.caCopy.textContent = "Copied!";
