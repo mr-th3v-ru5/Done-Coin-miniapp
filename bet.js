@@ -80,6 +80,9 @@
     els.betAmount = document.getElementById("bet-amount");
     els.quickAmounts = document.querySelectorAll(".qa");
     els.minBetHint = document.getElementById("min-bet-hint");
+    if (els.minBetHint) {
+      els.minBetHint.textContent = `Minimum bet from contract: ${MIN_BET_DONE} DONE`;
+    }
     els.btnPlaceBet = document.getElementById("btn-place-bet");
     els.rewardPreview = document.getElementById("reward-preview");
     els.payoutPreview = document.getElementById("payout-preview");
@@ -491,7 +494,8 @@
             state.doneDecimals || 18
           );
           setStatus(
-            `Your $DONE balance (${humanBal}) is lower than the bet amount.`
+            `Your $DONE balance (${humanBal}) is lower than the bet amount.`,
+            { isToast: true, tone: "status-error" }
           );
           return;
         }
