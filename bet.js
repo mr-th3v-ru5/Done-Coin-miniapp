@@ -50,6 +50,8 @@
   };
 
   let poolRefreshInterval = null;
+  let statusTimer = null;
+  let defaultStatusText = "";
 
   const urlParams = new URLSearchParams(window.location.search || "");
   const isMini = urlParams.get("source") === "mini";
@@ -83,6 +85,9 @@
     els.payoutPreview = document.getElementById("payout-preview");
     els.poolInfo = document.getElementById("pool-info");
     els.betStatus = document.getElementById("bet-status");
+    if (els.betStatus) {
+      defaultStatusText = (els.betStatus.textContent || "").trim();
+    }
 
     // TICKER / ROUND
     els.btcPrice = document.getElementById("btc-price");
@@ -118,8 +123,48 @@
 
   // ====== HELPERS ======
 
-  function setStatus(msg) {
-    if (els.betStatus) els.betStatus.textContent = msg || "";
+  function setStatus(msg, opts) {
+    opts = opts || {};
+    const isToast = !!opts.isToast;
+    const tone = opts.tone || "";
+
+    if (!els.betStatus) return;
+
+    if (statusTimer) {
+      clearTimeout(statusTimer);
+      statusTimer = null;
+    }
+
+    const text = msg || defaultStatusText || "";
+    els.betStatus.textContent = text;
+
+    els.betStatus.classList.remove(
+      "status-success",
+      "status-error",
+      "status-info",
+      "status-pop"
+    );
+
+    if (tone) {
+      els.betStatus.classList.add(tone);
+    }
+
+    if (isToast) {
+      els.betStatus.classList.add("status-pop");
+      statusTimer = setTimeout(() => {
+        els.betStatus.classList.remove(
+          "status-success",
+          "status-error",
+          "status-info",
+          "status-pop"
+        );
+        if (defaultStatusText) {
+          els.betStatus.textContent = defaultStatusText;
+        } else {
+          els.betStatus.textContent = "";
+        }
+      }, 2000);
+    }
   }
 
   function shortAddr(addr) {
@@ -406,10 +451,7 @@
         entryPrice: priceState.lastPrice,
         resolved: false
       };
-      const dirText =
-        state.selectedSide === 1
-          ? "UP — you predict BTC goes up"
-          : "DOWN — you predict BTC goes down";
+      const dirText = state.selectedSide === 1 ? "UP" : "DOWN";
       if (els.betDirection) {
         els.betDirection.textContent = dirText;
       }
@@ -536,7 +578,8 @@
 
       if (receipt.status === 1) {
         setStatus(
-          "✅ Bet confirmed on-chain. Visual result will show at end of this countdown round."
+          "✅ Bet confirmed on-chain. Visual result will show at end of this countdown round.",
+          { isToast: true, tone: "status-success" }
         );
         state.isBetLocked = true;
         await refreshDoneBalance();
@@ -646,31 +689,31 @@
       els.betClosePrice.textContent = closeStr;
     }
     if (els.betDirection) {
-      els.betDirection.textContent =
-        dirWord === "UP"
-          ? "UP — you predicted BTC goes up"
-          : "DOWN — you predicted BTC goes down";
+      els.betDirection.textContent = dirWord;
     }
 
-    let msg;
-    let cls;
+    let toastMsg;
+    let tone;
     if (
       (close > entry && side === 1) ||
       (close < entry && side === 0)
     ) {
-      msg = `✅ WIN — you chose ${dirWord}. Entry ${entryStr}, close ${closeStr}. (visual only)`;
-      cls = "bet-win";
+      toastMsg = `✅ WIN — Entry ${entryStr}, close ${closeStr}.`;
+      tone = "status-success";
     } else if (close === entry) {
-      msg = `⏸ DRAW — BTC closed at the same level. Entry ${entryStr}, close ${closeStr}. (visual only)`;
-      cls = "bet-draw";
+      toastMsg = `⏸ DRAW — Entry ${entryStr}, close ${closeStr}.`;
+      tone = "status-info";
     } else {
-      msg = `❌ LOSE — you chose ${dirWord}. Entry ${entryStr}, close ${closeStr}. (visual only)`;
-      cls = "bet-lose";
+      toastMsg = `❌ LOSE — Entry ${entryStr}, close ${closeStr}.`;
+      tone = "status-error";
     }
 
-    els.betOutcome.textContent = msg;
-    els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
-    els.betOutcome.classList.add(cls);
+    if (els.betOutcome) {
+      els.betOutcome.textContent = "";
+    }
+
+    setStatus(toastMsg, { isToast: true, tone });
+
     state.lastBetVisual.resolved = true;
     // allow a new bet in the next round
     state.isBetLocked = false;

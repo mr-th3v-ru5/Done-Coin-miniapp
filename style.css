@@ -851,8 +851,7 @@ body {
 }
 
 .bet-outcome-text {
-  margin-top: 8px;
-  font-size: 13px;
+  display: none;
 }
 
 /* win / lose / draw colors + subtle animations */
