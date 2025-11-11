@@ -475,11 +475,11 @@
 
       if (allowance.lt(amount)) {
         setStatus(
-          "Allowance is too low. Sending approve transaction (max allowance)..."
+          "Allowance is too low. Sending approve transaction (for this bet only)..."
         );
         const txApprove = await erc20.approve(
           BET_CONTRACT_ADDRESS,
-          ethers.constants.MaxUint256
+          amount
         );
         await txApprove.wait();
 
