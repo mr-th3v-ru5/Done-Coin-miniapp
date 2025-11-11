@@ -37,6 +37,7 @@
     address: null,
     doneDecimals: 18,
     doneBalanceRaw: "0",
+    ethBalanceRaw: null, // BigNumber
     selectedSide: 0,
     selectedMult: 1.2,
     minBetRaw: null,
@@ -83,6 +84,7 @@
     // SWAP elements
     els.swapAmountEth = document.getElementById("swap-amount-eth");
     els.swapEstimateDone = document.getElementById("swap-estimate-done");
+    els.swapBuyAmount = document.getElementById("swap-buy-amount");
     els.btnSwap = document.getElementById("btn-swap");
     els.swapStatus = document.getElementById("swap-status");
 
@@ -101,7 +103,10 @@
     setupRoundButtons();
     setupSwapHandlers();
     startPriceTicker();
+    updateSwapButton(); // initial state: disabled until connect
   });
+
+  // ===== COMMON HELPERS =====
 
   function setStatus(msg) {
     if (els.betStatus) els.betStatus.textContent = msg || "";
@@ -154,6 +159,19 @@
       }
     } catch (e) {
       console.warn("refreshNetworkInfo error:", e);
+    }
+  }
+
+  async function loadEthBalance() {
+    if (!state.provider || !state.address) return;
+    try {
+      const bal = await state.provider.getBalance(state.address);
+      state.ethBalanceRaw = bal;
+    } catch (e) {
+      console.warn("loadEthBalance error:", e);
+      state.ethBalanceRaw = null;
+    } finally {
+      updateSwapButton();
     }
   }
 
@@ -232,6 +250,8 @@
     }
   }
 
+  // ===== UI HANDLERS =====
+
   function setupUIHandlers() {
     if (els.btnConnect) {
       els.btnConnect.addEventListener("click", async () => {
@@ -240,6 +260,7 @@
           return;
         }
 
+        // disconnect
         if (isMini) {
           setStatus(
             "Wallet is provided by the mini app. To change it, use Farcaster settings."
@@ -249,12 +270,14 @@
           state.signer = null;
           state.address = null;
           state.doneBalanceRaw = "0";
+          state.ethBalanceRaw = null;
           if (els.walletAddr) els.walletAddr.textContent = "not connected";
           if (els.doneBalance) els.doneBalance.textContent = "0.0";
           els.btnConnect.textContent = "🔗 Connect";
           els.btnConnect.classList.remove("connected");
           setStatus("Wallet disconnected. Connect again before betting.");
           setSwapStatus("");
+          updateSwapButton();
         }
       });
     }
@@ -318,7 +341,10 @@
 
   function setupSwapHandlers() {
     if (els.swapAmountEth) {
-      els.swapAmountEth.addEventListener("input", handleSwapEstimate);
+      els.swapAmountEth.addEventListener("input", () => {
+        handleSwapEstimate();
+        updateSwapButton();
+      });
     }
     if (els.btnSwap) {
       els.btnSwap.addEventListener("click", handleSwap);
@@ -328,6 +354,8 @@
       els.btnOpenSwap.addEventListener("click", () => {
         els.swapModal.classList.add("open");
         setSwapStatus("");
+        updateSwapButton();
+        handleSwapEstimate();
       });
     }
 
@@ -344,6 +372,42 @@
       els.swapModal.classList.remove("open");
     }
   }
+
+  function updateSwapButton() {
+    if (!els.btnSwap) return;
+
+    // not connected
+    if (!state.signer || !state.address) {
+      els.btnSwap.disabled = true;
+      els.btnSwap.textContent = "Connect wallet to swap";
+      return;
+    }
+
+    const raw = (els.swapAmountEth && els.swapAmountEth.value) || "";
+    const val = parseFloat(raw);
+
+    if (!isFinite(val) || val <= 0) {
+      els.btnSwap.disabled = true;
+      els.btnSwap.textContent = "Enter amount";
+      return;
+    }
+
+    if (state.ethBalanceRaw) {
+      const balEth = parseFloat(
+        ethers.utils.formatEther(state.ethBalanceRaw)
+      );
+      if (val > balEth + 1e-9) {
+        els.btnSwap.disabled = true;
+        els.btnSwap.textContent = "Not enough ETH";
+        return;
+      }
+    }
+
+    els.btnSwap.disabled = false;
+    els.btnSwap.textContent = "🔄 Swap ETH → DONE";
+  }
+
+  // ===== CONNECT WALLET =====
 
   async function connectWallet() {
     if (typeof window.ethereum === "undefined") {
@@ -368,11 +432,13 @@
 
       await ensureBaseNetwork(provider.provider);
       await refreshNetworkInfo();
+      await loadEthBalance();
       await loadDoneTokenInfo();
       await loadBetConfig();
       await handleSwapEstimate();
 
       setStatus("Wallet connected. You can now bet and swap.");
+      updateSwapButton();
     } catch (e) {
       console.error(e);
       setStatus(
@@ -380,6 +446,8 @@
       );
     }
   }
+
+  // ===== BET PREVIEW & FLOW =====
 
   function updatePayoutPreview() {
     if (!els.betAmount) return;
@@ -520,18 +588,22 @@
     }
   }
 
-  // ====== SWAP FUNCTIONS ======
+  // ===== SWAP (MARKET PRICE + CONFIRMATION) =====
 
   async function handleSwapEstimate() {
     if (!els.swapAmountEth || !els.swapEstimateDone) return;
     const raw = els.swapAmountEth.value || "";
     const val = parseFloat(raw);
+
     if (!isFinite(val) || val <= 0) {
       els.swapEstimateDone.textContent = "—";
+      if (els.swapBuyAmount) els.swapBuyAmount.textContent = "0";
       return;
     }
+
     if (!state.provider) {
       els.swapEstimateDone.textContent = "connect wallet";
+      if (els.swapBuyAmount) els.swapBuyAmount.textContent = "0";
       return;
     }
 
@@ -543,13 +615,18 @@
       );
       const amountIn = ethers.utils.parseEther(raw);
       const path = [WETH_ADDRESS, DONE_TOKEN_ADDRESS];
+
+      // ambil harga pasar untuk jumlah yang dimasukkan user
       const amounts = await router.getAmountsOut(amountIn, path);
       const out = amounts[1];
       const human = ethers.utils.formatUnits(out, state.doneDecimals || 18);
+
       els.swapEstimateDone.textContent = human;
+      if (els.swapBuyAmount) els.swapBuyAmount.textContent = human;
     } catch (e) {
       console.warn("swap estimate error", e);
       els.swapEstimateDone.textContent = "—";
+      if (els.swapBuyAmount) els.swapBuyAmount.textContent = "0";
     }
   }
 
@@ -567,6 +644,29 @@
       return;
     }
 
+    // check ETH balance again
+    await loadEthBalance();
+    if (state.ethBalanceRaw) {
+      const balEth = parseFloat(
+        ethers.utils.formatEther(state.ethBalanceRaw)
+      );
+      if (val > balEth + 1e-9) {
+        setSwapStatus("Not enough ETH in wallet for this swap.");
+        updateSwapButton();
+        return;
+      }
+    }
+
+    const estDoneText =
+      (els.swapEstimateDone && els.swapEstimateDone.textContent) || "—";
+    const ok = window.confirm(
+      `Swap ${raw} ETH for approximately ${estDoneText} DONE?\n\nYou will be asked to confirm this transaction in your wallet.`
+    );
+    if (!ok) {
+      setSwapStatus("Swap cancelled by user.");
+      return;
+    }
+
     try {
       await ensureBaseNetwork();
 
@@ -578,9 +678,10 @@
       );
       const path = [WETH_ADDRESS, DONE_TOKEN_ADDRESS];
 
+      // get market price again as safety
       const amounts = await router.getAmountsOut(amountIn, path);
       const out = amounts[1];
-      const minOut = out.mul(97).div(100);
+      const minOut = out.mul(97).div(100); // 3% slippage
       const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
 
       setSwapStatus("Sending swap transaction via Uniswap router…");
@@ -599,9 +700,11 @@
 
       const receipt = await tx.wait();
       if (receipt.status === 1) {
-        setSwapStatus("✅ Swap completed. Your DONE balance will refresh soon.");
+        setSwapStatus("✅ Swap completed. Balances will refresh shortly.");
+        await loadEthBalance();
         await loadDoneTokenInfo();
         await handleSwapEstimate();
+        updateSwapButton();
       } else {
         setSwapStatus("Swap failed or reverted.");
       }
@@ -618,7 +721,7 @@
     }
   }
 
-  // ====== BTC TICKER & TIMER ======
+  // ===== BTC TICKER & TIMER =====
 
   function startPriceTicker() {
     updateBtcPrice();
