@@ -1,13 +1,15 @@
-// bet.js — DONE BTC Prediction & ETH->DONE swap on Base
+// bet.js — DONE BTC Prediction & ETH->DONE swap on Base (Uniswap v3)
 
 (function () {
   // ====== CONTRACT ADDRESSES (lowercase) ======
   const DONE_TOKEN_ADDRESS = "0x3da0da9414d02c1e4cc4526a5a24f5eeebfcead4";
   const BET_CONTRACT_ADDRESS = "0xc107cdb70bc93912aa6765c3a66dd88cee1acdf0";
 
-  // Uniswap V2 router on Base
-  const UNISWAP_V2_ROUTER = "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24";
-  const WETH_ADDRESS = "0x4200000000000000000000000000000000000006";
+  // Uniswap v3 on Base (SwapRouter02 + QuoterV2)
+  const UNISWAP_V3_ROUTER = "0x2626664c2603336E57B271c5C0b26F421741e481";
+  const UNISWAP_V3_QUOTER = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a";
+  const WETH_ADDRESS = "0x4200000000000000000000000000000000000006"; // WETH on Base
+  const V3_FEE_TIER = 3000; // 0.3% pool. Ubah kalau pool DONE/ETH pakai fee lain.
 
   // ====== ABIs ======
   const ERC20_ABI = [
@@ -25,11 +27,15 @@
     "function rounds(uint256) view returns (uint256 epoch,uint64 startTime,uint64 lockTime,uint64 closeTime,int256 lockPrice,int256 closePrice,uint256 totalUp,uint256 totalDown,uint8 result,bool locked,bool closed,bool feeTaken)"
   ];
 
-  const UNISWAP_V2_ROUTER_ABI = [
-    "function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts)",
-    "function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable"
+  const UNISWAP_V3_ROUTER_ABI = [
+    "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256 amountOut)"
   ];
 
+  const UNISWAP_V3_QUOTER_ABI = [
+    "function quoteExactInputSingle(address tokenIn,address tokenOut,uint24 fee,uint256 amountIn,uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)"
+  ];
+
+  // ====== STATE ======
   const els = {};
   const state = {
     provider: null,
@@ -54,6 +60,7 @@
     timeLeft: 60
   };
 
+  // ====== INIT ======
   document.addEventListener("DOMContentLoaded", () => {
     // WALLET / HEADER
     els.walletAddr = document.getElementById("wallet-addr-bet");
@@ -103,10 +110,10 @@
     setupRoundButtons();
     setupSwapHandlers();
     startPriceTicker();
-    updateSwapButton(); // initial state: disabled until connect
+    updateSwapButton(); // awal: disabled sampai wallet connect
   });
 
-  // ===== COMMON HELPERS =====
+  // ====== HELPERS ======
 
   function setStatus(msg) {
     if (els.betStatus) els.betStatus.textContent = msg || "";
@@ -127,7 +134,7 @@
 
     const net = await state.provider.getNetwork();
     const chainId = Number(net.chainId || 0);
-    if (chainId === 8453) return;
+    if (chainId === 8453) return; // Base mainnet
 
     try {
       await provider.request({
@@ -250,7 +257,7 @@
     }
   }
 
-  // ===== UI HANDLERS =====
+  // ====== UI HANDLERS ======
 
   function setupUIHandlers() {
     if (els.btnConnect) {
@@ -407,7 +414,7 @@
     els.btnSwap.textContent = "🔄 Swap ETH → DONE";
   }
 
-  // ===== CONNECT WALLET =====
+  // ====== CONNECT WALLET ======
 
   async function connectWallet() {
     if (typeof window.ethereum === "undefined") {
@@ -447,7 +454,7 @@
     }
   }
 
-  // ===== BET PREVIEW & FLOW =====
+  // ====== BET PREVIEW & FLOW ======
 
   function updatePayoutPreview() {
     if (!els.betAmount) return;
@@ -588,10 +595,11 @@
     }
   }
 
-  // ===== SWAP (MARKET PRICE + CONFIRMATION) =====
+  // ====== UNISWAP v3 — ESTIMATE & SWAP ======
 
   async function handleSwapEstimate() {
     if (!els.swapAmountEth || !els.swapEstimateDone) return;
+
     const raw = els.swapAmountEth.value || "";
     const val = parseFloat(raw);
 
@@ -608,18 +616,27 @@
     }
 
     try {
-      const router = new ethers.Contract(
-        UNISWAP_V2_ROUTER,
-        UNISWAP_V2_ROUTER_ABI,
+      const quoter = new ethers.Contract(
+        UNISWAP_V3_QUOTER,
+        UNISWAP_V3_QUOTER_ABI,
         state.provider
       );
-      const amountIn = ethers.utils.parseEther(raw);
-      const path = [WETH_ADDRESS, DONE_TOKEN_ADDRESS];
 
-      // ambil harga pasar untuk jumlah yang dimasukkan user
-      const amounts = await router.getAmountsOut(amountIn, path);
-      const out = amounts[1];
-      const human = ethers.utils.formatUnits(out, state.doneDecimals || 18);
+      const amountIn = ethers.utils.parseEther(raw);
+
+      // harga DONE di pool v3 (WETH -> DONE)
+      const amountOut = await quoter.callStatic.quoteExactInputSingle(
+        WETH_ADDRESS,
+        DONE_TOKEN_ADDRESS,
+        V3_FEE_TIER,
+        amountIn,
+        0 // sqrtPriceLimitX96 = 0 (no limit)
+      );
+
+      const human = ethers.utils.formatUnits(
+        amountOut,
+        state.doneDecimals || 18
+      );
 
       els.swapEstimateDone.textContent = human;
       if (els.swapBuyAmount) els.swapBuyAmount.textContent = human;
@@ -644,7 +661,7 @@
       return;
     }
 
-    // check ETH balance again
+    // cek saldo ETH terbaru
     await loadEthBalance();
     if (state.ethBalanceRaw) {
       const balEth = parseFloat(
@@ -657,42 +674,57 @@
       }
     }
 
-    const estDoneText =
-      (els.swapEstimateDone && els.swapEstimateDone.textContent) || "—";
-    const ok = window.confirm(
-      `Swap ${raw} ETH for approximately ${estDoneText} DONE?\n\nYou will be asked to confirm this transaction in your wallet.`
-    );
-    if (!ok) {
-      setSwapStatus("Swap cancelled by user.");
-      return;
-    }
-
     try {
       await ensureBaseNetwork();
 
       const amountIn = ethers.utils.parseEther(raw);
+
+      // hitung expected out & minOut (slippage 3%) pakai Quoter v3
+      const quoter = new ethers.Contract(
+        UNISWAP_V3_QUOTER,
+        UNISWAP_V3_QUOTER_ABI,
+        state.provider
+      );
+
+      const quotedOut = await quoter.callStatic.quoteExactInputSingle(
+        WETH_ADDRESS,
+        DONE_TOKEN_ADDRESS,
+        V3_FEE_TIER,
+        amountIn,
+        0
+      );
+
+      const minOut = quotedOut.mul(97).div(100); // 3% slippage
+      const humanOut = ethers.utils.formatUnits(
+        quotedOut,
+        state.doneDecimals || 18
+      );
+
+      setSwapStatus(
+        `Preparing swap ${raw} ETH → ~${humanOut} DONE.\nConfirm this swap in your wallet…`
+      );
+
       const router = new ethers.Contract(
-        UNISWAP_V2_ROUTER,
-        UNISWAP_V2_ROUTER_ABI,
+        UNISWAP_V3_ROUTER,
+        UNISWAP_V3_ROUTER_ABI,
         state.signer
       );
-      const path = [WETH_ADDRESS, DONE_TOKEN_ADDRESS];
 
-      // get market price again as safety
-      const amounts = await router.getAmountsOut(amountIn, path);
-      const out = amounts[1];
-      const minOut = out.mul(97).div(100); // 3% slippage
       const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
 
-      setSwapStatus("Sending swap transaction via Uniswap router…");
-
-      const tx = await router.swapExactETHForTokens(
-        minOut,
-        path,
-        state.address,
+      const params = {
+        tokenIn: WETH_ADDRESS,
+        tokenOut: DONE_TOKEN_ADDRESS,
+        fee: V3_FEE_TIER,
+        recipient: state.address,
         deadline,
-        { value: amountIn }
-      );
+        amountIn,
+        amountOutMinimum: minOut,
+        sqrtPriceLimitX96: 0
+      };
+
+      // Akan memunculkan popup konfirmasi di wallet (Metamask, dsb)
+      const tx = await router.exactInputSingle(params, { value: amountIn });
 
       setSwapStatus(
         "Swap tx sent: " + tx.hash + " (waiting for confirmation)…"
@@ -700,7 +732,9 @@
 
       const receipt = await tx.wait();
       if (receipt.status === 1) {
-        setSwapStatus("✅ Swap completed. Balances will refresh shortly.");
+        setSwapStatus(
+          "✅ Swap completed. DONE and ETH balances will refresh in a moment."
+        );
         await loadEthBalance();
         await loadDoneTokenInfo();
         await handleSwapEstimate();
@@ -721,7 +755,7 @@
     }
   }
 
-  // ===== BTC TICKER & TIMER =====
+  // ====== BTC TICKER & ROUND TIMER ======
 
   function startPriceTicker() {
     updateBtcPrice();
