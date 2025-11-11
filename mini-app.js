@@ -8,48 +8,55 @@
     wallet: null
   };
 
-  // root URL = domain tempat mini app di-host
+  // Same origin as mini app deployment
   const ROOT_URL = window.location.origin;
-
-  // URL bet dApp di domain yang sama, dengan flag source=mini
   const BET_DAPP_URL = ROOT_URL + "/bet.html?source=mini";
 
-  // alamat kontrak airdrop (kalau nanti mau dipakai klaim on-chain)
+  // airdrop contract address if you later want on-chain claim
   const AIRDROP_CONTRACT_ADDRESS =
     "0x1df8DcCAD57939BaB8Ae0f3406Eaa868887E03bb";
 
   document.addEventListener("DOMContentLoaded", () => {
+    // header
     els.scorePill = document.getElementById("score-pill");
     els.scoreVal = document.getElementById("score-val");
+
+    // farcaster
     els.fcUser = document.getElementById("fc-user");
     els.fidLabel = document.getElementById("fid-label");
     els.fcHint = document.getElementById("fc-hint");
 
+    // wallet
     els.walletAddr = document.getElementById("wallet-addr");
 
+    // quest + progress
+    els.steps = document.querySelectorAll(".step");
     els.progressFill = document.getElementById("progressFill");
     els.progressLabel = document.getElementById("progressLabel");
     els.progressHint = document.getElementById("progressHint");
 
+    // claim
     els.btnClaim = document.getElementById("btn-claim");
     els.claimStatus = document.getElementById("claim-status");
 
-    els.steps = document.querySelectorAll(".step");
-
+    // tabs
     els.tabAirdrop = document.getElementById("tab-airdrop");
     els.tabBet = document.getElementById("tab-bet");
     els.viewAirdrop = document.getElementById("view-airdrop");
     els.viewBet = document.getElementById("view-bet");
 
+    // bet open
     els.betOpenBtn = document.getElementById("btn-open-bet");
+    els.miniBtcPrice = document.getElementById("mini-btc-price");
 
     setupTabs();
     setupSteps();
     setupBetButton();
     detectContext();
+    startMiniTicker();
   });
 
-  // ====== TABS ======
+  // ========== TABS ==========
 
   function setupTabs() {
     if (!els.tabAirdrop || !els.tabBet || !els.viewAirdrop || !els.viewBet)
@@ -70,16 +77,7 @@
     });
   }
 
-  // ====== BUTTON BET & EARN ======
-
-  function setupBetButton() {
-    if (!els.betOpenBtn) return;
-    els.betOpenBtn.addEventListener("click", () => {
-      window.open(BET_DAPP_URL, "_blank");
-    });
-  }
-
-  // ====== QUEST STEPS ======
+  // ========== QUEST STEPS ==========
 
   function setupSteps() {
     if (!els.steps || !els.steps.length) return;
@@ -107,7 +105,16 @@
     els.progressLabel.textContent = `${done} / ${total} steps complete`;
   }
 
-  // ====== DETECT CONTEXT (FID + WALLET) ======
+  // ========== BET BUTTON ==========
+
+  function setupBetButton() {
+    if (!els.betOpenBtn) return;
+    els.betOpenBtn.addEventListener("click", () => {
+      window.open(BET_DAPP_URL, "_blank");
+    });
+  }
+
+  // ========== CONTEXT (FID + WALLET) ==========
 
   function detectContext() {
     try {
@@ -123,13 +130,13 @@
         if (els.fidLabel) els.fidLabel.textContent = fid;
         if (els.claimStatus)
           els.claimStatus.textContent =
-            "FID Farcaster terdeteksi. Siap cek skor Neynar & quest.";
+            "FID detected. Score & quest checks can be applied.";
         fetchNeynarScore(fid);
       } else {
         if (els.fidLabel) els.fidLabel.textContent = "unknown";
         if (els.claimStatus)
           els.claimStatus.textContent =
-            "FID Farcaster belum terdeteksi, tidak bisa klaim.";
+            "FID is not detected yet — automatic claim is disabled.";
       }
     } catch (e) {
       console.warn("detectContext error:", e);
@@ -139,8 +146,6 @@
   }
 
   async function detectWalletFromProvider() {
-    // Di mini app Farcaster biasanya TIDAK ada window.ethereum,
-    // tapi kalau user buka dari browser biasa (testing) bisa terdeteksi.
     if (typeof window.ethereum === "undefined") return;
 
     try {
@@ -150,7 +155,9 @@
 
       const addr = accounts[0];
       state.wallet = addr;
+
       if (els.walletAddr) els.walletAddr.textContent = shortAddr(addr);
+      if (els.fcUser) els.fcUser.textContent = shortAddr(addr);
     } catch (e) {
       console.warn("detectWalletFromProvider error:", e);
     }
@@ -161,19 +168,19 @@
     return addr.slice(0, 6) + "…" + addr.slice(-4);
   }
 
-  // ====== NEYNAR SCORE (opsional) ======
+  // ========== NEYNAR SCORE (OPTIONAL) ==========
 
   async function fetchNeynarScore(fid) {
     if (!fid || !els.scoreVal) return;
 
     try {
       els.scoreVal.textContent = "…";
-      // Asumsi kamu punya endpoint backend /api/neynar-score
-      // yang mengembalikan JSON { score: number }
+
+      // assumes you have /api/neynar-score?fid=... on your backend
       const res = await fetch(`/api/neynar-score?fid=${encodeURIComponent(fid)}`);
       if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
 
+      const data = await res.json();
       const score = typeof data.score === "number" ? data.score : null;
       state.score = score;
 
@@ -181,7 +188,7 @@
         els.scoreVal.textContent = "n/a";
         if (els.claimStatus)
           els.claimStatus.textContent =
-            "Tidak bisa membaca skor Neynar. Coba lagi nanti.";
+            "Could not read Neynar score. Try again later.";
         return;
       }
 
@@ -189,15 +196,38 @@
       if (els.claimStatus) {
         els.claimStatus.textContent =
           score >= 0.35
-            ? "Skor Neynar cukup tinggi. Selesaikan semua quest lalu klaim airdrop."
-            : "Skor Neynar masih rendah. Tingkatkan aktivitasmu sebelum klaim.";
+            ? "Score is high enough. Finish the quest and claim on the main site."
+            : "Score is still low. Increase your activity before claiming.";
       }
     } catch (e) {
       console.warn("fetchNeynarScore error:", e);
       if (els.scoreVal) els.scoreVal.textContent = "error";
       if (els.claimStatus)
         els.claimStatus.textContent =
-          "Gagal memuat skor Neynar. Coba lagi nanti.";
+          "Failed to load Neynar score. Please try again later.";
+    }
+  }
+
+  // ========== SMALL BTC TICKER ON BET TAB ==========
+
+  function startMiniTicker() {
+    if (!els.miniBtcPrice) return;
+    updateMiniPrice();
+    setInterval(updateMiniPrice, 10000);
+  }
+
+  async function updateMiniPrice() {
+    if (!els.miniBtcPrice) return;
+    try {
+      const res = await fetch(
+        "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+      );
+      const data = await res.json();
+      const price = parseFloat(data.price || "0");
+      if (!isFinite(price) || price <= 0) return;
+      els.miniBtcPrice.textContent = price.toFixed(2);
+    } catch (e) {
+      console.warn("updateMiniPrice error:", e);
     }
   }
 })();
