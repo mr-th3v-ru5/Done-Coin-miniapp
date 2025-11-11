@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  />
+  <title>DONE Bet — Base</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <div class="card-header">
+        <div class="brand">
+          <div class="logo">D</div>
+          <div class="title-block">
+            <div class="title">DONE Bet</div>
+            <div class="subtitle">Bet &amp; earn $DONE on Base</div>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <div class="score-pill" id="network-pill">
+            Network: <span id="network-name">—</span>
+          </div>
+          <button class="btn-wallet" id="btn-connect">
+            🔗 Connect Wallet
+          </button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Wallet</div>
+        <div class="row">
+          <div class="row-label">Address</div>
+          <div class="row-value addr" id="wallet-addr-bet">not connected</div>
+        </div>
+        <div class="row" style="margin-top:4px;">
+          <div class="row-label">$DONE Balance</div>
+          <div class="row-value addr" id="done-balance">0.0</div>
+        </div>
+        <div class="hint" id="wallet-hint">
+          Gunakan wallet yang sama dengan mini app airdrop di jaringan Base.
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Bet mode</div>
+        <div class="bet-modes">
+          <button class="mode-chip active" data-mult="1.2" data-side="0">
+            Safe<br /><span>~1.2x</span>
+          </button>
+          <button class="mode-chip" data-mult="1.5" data-side="1">
+            Normal<br /><span>~1.5x</span>
+          </button>
+          <button class="mode-chip" data-mult="2.0" data-side="1">
+            Degen<br /><span>2x+</span>
+          </button>
+        </div>
+        <div class="hint">
+          Mode di atas hanya label UI — payout sebenarnya dihitung langsung oleh smart contract DoneBet.
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Amount</div>
+        <div class="amount-row">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            id="bet-amount"
+            placeholder="Masukkan jumlah DONE"
+          />
+          <span class="amount-unit">DONE</span>
+        </div>
+
+        <div class="qa-row">
+          <button class="qa" data-perc="10">10%</button>
+          <button class="qa" data-perc="25">25%</button>
+          <button class="qa" data-perc="50">50%</button>
+          <button class="qa" data-perc="100">MAX</button>
+        </div>
+
+        <div class="hint" id="min-bet-hint">
+          Minimal bet dari kontrak: memuat…
+        </div>
+        <div class="hint" id="pool-info"></div>
+        <div class="hint" id="reward-preview"></div>
+        <div class="hint" id="payout-preview"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Action</div>
+        <button class="btn btn-secondary" id="btn-place-bet">
+          🎰 Place Bet
+        </button>
+        <div class="status-line" id="bet-status">
+          Siapkan jumlah $DONE dan pilih mode sebelum bertaruh.
+        </div>
+      </div>
+
+      <div class="mini-footer">
+        DONE Bet • Base network • Gunakan dengan tanggung jawab
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="/bet.js"></script>
+</body>
+</html>

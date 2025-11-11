@@ -1,16 +1,18 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DONE Hub — Mini App</title>
-  <link rel="stylesheet" href="./style.css" />
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+  <title>DONE Hub — $DONE Airdrop & Bet on Base</title>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <div class="shell">
     <div class="card">
-      <!-- HEADER -->
-      <div class="card-header">
+      <header class="card-header">
         <div class="brand">
           <div class="logo">D</div>
           <div class="title-block">
@@ -18,138 +20,131 @@
             <div class="subtitle">$DONE • Airdrop &amp; Bet on Base</div>
           </div>
         </div>
-        <div id="score-pill" class="pill">
+        <div class="score-pill" id="score-pill">
           Neynar score: <span id="score-val">—</span>
         </div>
-      </div>
+      </header>
 
-      <!-- TABS -->
-      <div class="tabs">
-        <button id="tab-airdrop" class="tab active">Airdrop Quest</button>
-        <button id="tab-bet" class="tab">Bet &amp; Earn</button>
-      </div>
+      <nav class="tab-bar">
+        <button class="tab active" id="tab-airdrop">Airdrop Quest</button>
+        <button class="tab" id="tab-bet">Bet &amp; Earn</button>
+      </nav>
 
-      <!-- VIEW: AIRDROP -->
-      <div id="view-airdrop">
+      <section id="view-airdrop" class="view">
         <div class="section">
-          <div class="section-title">Farcaster</div>
+          <h2 class="section-title">Farcaster</h2>
           <div class="row">
             <div class="row-label">User</div>
-            <div id="fc-user" class="addr">loading…</div>
+            <div class="row-value" id="fc-user">—</div>
           </div>
-          <div class="row" style="margin-top:4px;">
-            <div class="row-label">Wallet</div>
-            <div id="wallet-addr" class="addr">connecting…</div>
+          <div class="row">
+            <div class="row-label">FID</div>
+            <div class="row-value" id="fid-label">unknown</div>
           </div>
-          <div id="fc-hint" class="hint">
-            Membuka dari Farcaster Mini App. Kami akan otomatis mendeteksi FID dan Neynar score kamu.
+          <p class="hint" id="fc-hint">
+            Tidak bisa mendeteksi FID Farcaster dari mini app.
+            Pastikan mini app dikonfigurasi untuk mengirimkan FID di URL
+            atau ada sesi backend.
+          </p>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">Wallet</h2>
+          <div class="row">
+            <div class="row-label">Address</div>
+            <div class="row-value" id="wallet-addr">—</div>
+          </div>
+          <p class="hint">
+            Gunakan wallet yang sama untuk airdrop dan taruhan DoneBet
+            di jaringan Base.
+          </p>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">Quest steps</h2>
+          <ol class="steps">
+            <li class="step" data-step="1">
+              <div class="step-num">1</div>
+              <div class="step-body">
+                <div class="step-title">Follow DONE creator</div>
+                <div class="step-text">
+                  Ikuti akun Farcaster / X resmi proyek DONE.
+                </div>
+              </div>
+            </li>
+            <li class="step" data-step="2">
+              <div class="step-num">2</div>
+              <div class="step-body">
+                <div class="step-title">Cast tentang DONE</div>
+                <div class="step-text">
+                  Tulis satu cast tentang $DONE dan mention tag komunitasmu.
+                </div>
+              </div>
+            </li>
+            <li class="step" data-step="3">
+              <div class="step-num">3</div>
+              <div class="step-body">
+                <div class="step-title">Join channel / group</div>
+                <div class="step-text">
+                  Gabung ke ruang diskusi yang disediakan tim DONE.
+                </div>
+              </div>
+            </li>
+            <li class="step" data-step="4">
+              <div class="step-num">4</div>
+              <div class="step-body">
+                <div class="step-title">Hold minimal 1 DONE</div>
+                <div class="step-text">
+                  Simpan minimal 1 token DONE di wallet Base yang sama.
+                </div>
+              </div>
+            </li>
+          </ol>
+
+          <div class="progress-wrap">
+            <div class="progress-bar">
+              <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div class="progress-label" id="progressLabel">
+              0 / 4 steps complete
+            </div>
+            <p class="hint" id="progressHint">
+              Tap setiap langkah jika sudah selesai.
+            </p>
           </div>
         </div>
 
         <div class="section">
-          <div class="section-title">Quest steps</div>
-          <div class="steps">
-            <div class="step">
-              <div class="step-index">1</div>
-              <div>
-                <strong>Follow DONE creator</strong><br />
-                Ikuti akun Farcaster / X resmi proyek DONE.
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-index">2</div>
-              <div>
-                <strong>Cast tentang DONE</strong><br />
-                Tulis satu cast tentang $DONE dan mention tag komunitasmu.
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-index">3</div>
-              <div>
-                <strong>Join channel / group</strong><br />
-                Gabung ke ruang diskusi yang disediakan tim DONE.
-              </div>
-            </div>
-            <div class="step">
-              <div class="step-index">4</div>
-              <div>
-                <strong>Hold minimal 1 DONE</strong><br />
-                Simpan minimal 1 token DONE di wallet Base yang sama.
-              </div>
-            </div>
-          </div>
-
-          <div class="progress-bar">
-            <div class="progress-fill" id="progressFill"></div>
-          </div>
-          <div class="progress-label">
-            <span id="progressLabel">0 / 4 steps complete</span>
-            <span id="progressHint">tap langkah jika sudah selesai</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">Claim</div>
-          <button id="btn-claim" class="btn btn-primary" disabled>
+          <h2 class="section-title">Claim</h2>
+          <button class="btn" id="btn-claim" disabled>
             🎁 Claim 1,000 DONE
           </button>
-          <div id="claim-status" class="status-line">
-            Menunggu wallet &amp; Neynar score terverifikasi…
+          <div class="status-line" id="claim-status">
+            FID Farcaster belum terdeteksi, tidak bisa klaim.
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- VIEW: BET & EARN -->
-      <div id="view-bet" class="view-hidden">
+      <section id="view-bet" class="view view-hidden">
         <div class="section">
-          <div class="section-title">Bet &amp; Earn $DONE</div>
-          <div class="hint">
-            Taruhan on-chain di jaringan Base. Cocok buat yang mau farming $DONE
-            dengan resiko lebih tinggi dibanding airdrop biasa.
-          </div>
-
-          <div class="bet-rows">
-            <div class="bet-line">
-              <div>
-                <div class="bet-label">Mode Aman</div>
-                <div class="bet-desc">Taruhan kecil, resiko rendah.</div>
-              </div>
-              <div class="bet-mult">~1.2x</div>
-            </div>
-            <div class="bet-line">
-              <div>
-                <div class="bet-label">Mode Normal</div>
-                <div class="bet-desc">Seimbang antara resiko &amp; reward.</div>
-              </div>
-              <div class="bet-mult">~1.5x</div>
-            </div>
-            <div class="bet-line">
-              <div>
-                <div class="bet-label">Mode Degen</div>
-                <div class="bet-desc">High risk, high reward.</div>
-              </div>
-              <div class="bet-mult">2x+</div>
-            </div>
-          </div>
-
-          <button id="btn-open-bet" class="btn btn-secondary">
+          <h2 class="section-title">Bet &amp; Earn $DONE</h2>
+          <p class="hint">
+            Taruhan on-chain di jaringan Base. Cocok buat yang mau farming
+            $DONE dengan resiko lebih tinggi dibanding airdrop biasa.
+          </p>
+          <button class="btn btn-secondary" id="btn-open-bet">
             🎰 Buka halaman Bet
           </button>
-          <div class="status-line">
-            Taruhan akan terbuka di halaman khusus (dApp). Pastikan cukup saldo
-            $DONE / ETH gas di wallet Base kamu.
-          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- FOOTER -->
-      <div class="mini-footer">
-        DONE Hub • Airdrop &amp; Bet • Base • anti-bot Neynar ≥ 0.35
-      </div>
+      <footer class="mini-footer">
+        DONE Hub • $DONE on Base
+      </footer>
     </div>
   </div>
 
   <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="./mini-app.js"></script>
+  <script src="/mini-app.js"></script>
 </body>
 </html>
