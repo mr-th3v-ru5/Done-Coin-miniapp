@@ -42,16 +42,15 @@
     isBetLocked: false,
     doneDecimals: 18,
     doneBalanceRaw: "0",
-    selectedSide: null, // 0 = DOWN, 1 = UP, null = not selected
+    selectedSide: null, // 0 = DOWN, 1 = UP, null = not chosen yet
     selectedMult: 1.2,
     minBetRaw: null,
     poolBalanceRaw: null,
-    lastBetVisual: null
+    lastBetVisual: null,
+    queuedBetVisual: null
   };
 
   let poolRefreshInterval = null;
-  let statusTimer = null;
-  let defaultStatusText = "";
 
   const urlParams = new URLSearchParams(window.location.search || "");
   const isMini = urlParams.get("source") === "mini";
@@ -61,6 +60,7 @@
     lastChangePct: 0,
     roundSeconds: 60,
     timeLeft: 60,
+    roundId: 0,
     history: []
   };
 
@@ -81,16 +81,14 @@
     els.quickAmounts = document.querySelectorAll(".qa");
     els.minBetHint = document.getElementById("min-bet-hint");
     if (els.minBetHint) {
-      els.minBetHint.textContent = `Minimum bet from contract: ${MIN_BET_DONE} DONE`;
+      els.minBetHint.textContent =
+        `Minimum bet from contract: ${MIN_BET_DONE} DONE`;
     }
     els.btnPlaceBet = document.getElementById("btn-place-bet");
     els.rewardPreview = document.getElementById("reward-preview");
     els.payoutPreview = document.getElementById("payout-preview");
     els.poolInfo = document.getElementById("pool-info");
     els.betStatus = document.getElementById("bet-status");
-    if (els.betStatus) {
-      defaultStatusText = (els.betStatus.textContent || "").trim();
-    }
 
     // TICKER / ROUND
     els.btcPrice = document.getElementById("btc-price");
@@ -126,48 +124,8 @@
 
   // ====== HELPERS ======
 
-  function setStatus(msg, opts) {
-    opts = opts || {};
-    const isToast = !!opts.isToast;
-    const tone = opts.tone || "";
-
-    if (!els.betStatus) return;
-
-    if (statusTimer) {
-      clearTimeout(statusTimer);
-      statusTimer = null;
-    }
-
-    const text = msg || defaultStatusText || "";
-    els.betStatus.textContent = text;
-
-    els.betStatus.classList.remove(
-      "status-success",
-      "status-error",
-      "status-info",
-      "status-pop"
-    );
-
-    if (tone) {
-      els.betStatus.classList.add(tone);
-    }
-
-    if (isToast) {
-      els.betStatus.classList.add("status-pop");
-      statusTimer = setTimeout(() => {
-        els.betStatus.classList.remove(
-          "status-success",
-          "status-error",
-          "status-info",
-          "status-pop"
-        );
-        if (defaultStatusText) {
-          els.betStatus.textContent = defaultStatusText;
-        } else {
-          els.betStatus.textContent = "";
-        }
-      }, 2000);
-    }
+  function setStatus(msg) {
+    if (els.betStatus) els.betStatus.textContent = msg || "";
   }
 
   function shortAddr(addr) {
@@ -431,7 +389,7 @@
     }
 
     if (state.isBetLocked) {
-      setStatus("You already have an active bet in this round. Wait until the current round ends.");
+      setStatus("You already have an active bet. Wait until the current round is finished.");
       return;
     }
 
@@ -442,32 +400,27 @@
       return;
     }
 
-    // user must choose direction first
     if (state.selectedSide !== 0 && state.selectedSide !== 1) {
-      setStatus("Choose a direction (UP or DOWN) before placing a bet.");
+      setStatus("Choose UP or DOWN before placing a bet.");
       return;
     }
 
-    if (priceState.lastPrice && isFinite(priceState.lastPrice)) {
-      state.lastBetVisual = {
-        side: state.selectedSide,
-        entryPrice: priceState.lastPrice,
-        resolved: false
-      };
-      const dirText = state.selectedSide === 1 ? "UP" : "DOWN";
-      if (els.betDirection) {
-        els.betDirection.textContent = dirText;
-      }
-      if (els.betEntryPrice) {
-        els.betEntryPrice.textContent = priceState.lastPrice.toFixed(2);
-      }
-      if (els.betClosePrice) {
-        els.betClosePrice.textContent = "—";
-      }
-      if (els.betOutcome) {
-        els.betOutcome.textContent = "Waiting for round close…";
-        els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
-      }
+    // queue this bet for the *next* visual round
+    state.queuedBetVisual = {
+      side: state.selectedSide
+    };
+    if (els.betDirection) {
+      els.betDirection.textContent = state.selectedSide === 1 ? "UP" : "DOWN";
+    }
+    if (els.betEntryPrice) {
+      els.betEntryPrice.textContent = "—";
+    }
+    if (els.betClosePrice) {
+      els.betClosePrice.textContent = "—";
+    }
+    if (els.betOutcome) {
+      els.betOutcome.textContent = "Queued for next round…";
+      els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
     }
 
     try {
@@ -494,8 +447,7 @@
             state.doneDecimals || 18
           );
           setStatus(
-            `Your $DONE balance (${humanBal}) is lower than the bet amount.`,
-            { isToast: true, tone: "status-error" }
+            `Your $DONE balance (${humanBal}) is lower than the bet amount.`
           );
           return;
         }
@@ -541,11 +493,11 @@
 
       if (allowance.lt(amount)) {
         setStatus(
-          "Allowance is too low. Sending approve transaction (for this bet only)..."
+          "Allowance is too low. Sending approve transaction (max allowance)..."
         );
         const txApprove = await erc20.approve(
           BET_CONTRACT_ADDRESS,
-          amount
+          ethers.constants.MaxUint256
         );
         await txApprove.wait();
 
@@ -569,11 +521,7 @@
         els.btnPlaceBet.classList.add("bet-pending");
       }
 
-      const side = state.selectedSide;
-      if (side !== 0 && side !== 1) {
-        setStatus("Invalid bet direction. Please refresh the page and choose UP or DOWN again.");
-        return;
-      }
+      const side = state.selectedSide || 0;
       const tx = await bet.placeBet(side, amount);
       setStatus("Bet tx sent: " + tx.hash + " (waiting for confirmation)…");
 
@@ -582,8 +530,7 @@
 
       if (receipt.status === 1) {
         setStatus(
-          "✅ Bet confirmed on-chain. Visual result will show at end of this countdown round.",
-          { isToast: true, tone: "status-success" }
+          "✅ Bet confirmed on-chain. Your bet is now queued for the next round."
         );
         state.isBetLocked = true;
         await refreshDoneBalance();
@@ -675,51 +622,67 @@
     });
   }
 
+  // Promote any queued bet into the next visual round
+  function startNextRoundForQueuedBet() {
+    if (!state.queuedBetVisual) return;
+    if (!priceState.lastPrice || !isFinite(priceState.lastPrice)) return;
+
+    const side = state.queuedBetVisual.side;
+    const entry = priceState.lastPrice;
+
+    state.lastBetVisual = {
+      side,
+      entryPrice: entry,
+      resolved: false
+    };
+    state.queuedBetVisual = null;
+
+    if (els.betDirection) {
+      els.betDirection.textContent = side === 1 ? "UP" : "DOWN";
+    }
+    if (els.betEntryPrice) {
+      els.betEntryPrice.textContent = entry.toFixed(2);
+    }
+    if (els.betClosePrice) {
+      els.betClosePrice.textContent = "—";
+    }
+    if (els.betOutcome) {
+      els.betOutcome.textContent = "Round running…";
+      els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
+    }
+  }
+
   function resolveVisualBet() {
     if (!state.lastBetVisual || state.lastBetVisual.resolved) return;
     const entry = state.lastBetVisual.entryPrice;
     const close = priceState.lastPrice;
     if (!entry || !close || !els.betOutcome) return;
 
-    const side = state.lastBetVisual.side;
-    const dirWord = side === 1 ? "UP" : "DOWN";
-    const entryStr = entry.toFixed(2);
-    const closeStr = close.toFixed(2);
-
-    if (els.betEntryPrice) {
-      els.betEntryPrice.textContent = entryStr;
-    }
     if (els.betClosePrice) {
-      els.betClosePrice.textContent = closeStr;
-    }
-    if (els.betDirection) {
-      els.betDirection.textContent = dirWord;
+      els.betClosePrice.textContent = close.toFixed(2);
     }
 
-    let toastMsg;
-    let tone;
+    let msg;
+    let cls;
     if (
-      (close > entry && side === 1) ||
-      (close < entry && side === 0)
+      (close > entry && state.lastBetVisual.side === 1) ||
+      (close < entry && state.lastBetVisual.side === 0)
     ) {
-      toastMsg = `✅ WIN — Entry ${entryStr}, close ${closeStr}.`;
-      tone = "status-success";
+      msg = "✅ Your bet direction is correct based on BTC price (visual only).";
+      cls = "bet-win";
     } else if (close === entry) {
-      toastMsg = `⏸ DRAW — Entry ${entryStr}, close ${closeStr}.`;
-      tone = "status-info";
+      msg = "⏸ BTC price closed at the same level as your entry.";
+      cls = "bet-draw";
     } else {
-      toastMsg = `❌ LOSE — Entry ${entryStr}, close ${closeStr}.`;
-      tone = "status-error";
+      msg = "❌ Your bet direction is wrong based on BTC price (visual only).";
+      cls = "bet-lose";
     }
 
-    if (els.betOutcome) {
-      els.betOutcome.textContent = "";
-    }
-
-    setStatus(toastMsg, { isToast: true, tone });
-
+    els.betOutcome.textContent = msg;
+    els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
+    els.betOutcome.classList.add(cls);
     state.lastBetVisual.resolved = true;
-    // allow a new bet in the next round
+    // allow new bets after this round closes
     state.isBetLocked = false;
   }
 
@@ -815,12 +778,18 @@
   function startRoundTimer() {
     if (!els.roundTimer) return;
     priceState.timeLeft = priceState.roundSeconds;
+    priceState.roundId = 0;
+    // startNextRoundForQueuedBet is only meaningful when a user has queued a bet
     updateRoundTimer();
     setInterval(() => {
       priceState.timeLeft--;
       if (priceState.timeLeft <= 0) {
+        // close current round for any active bet
         resolveVisualBet();
+        // start next round
+        priceState.roundId++;
         priceState.timeLeft = priceState.roundSeconds;
+        startNextRoundForQueuedBet();
       }
       updateRoundTimer();
     }, 1000);
