@@ -1,10 +1,11 @@
-// bet.js — DONE Bet mini app (no on-chain swap, external Uniswap link + visual price + BTC chart)
+// bet.js — DONE Bet mini app
 // - Connect wallet on Base
 // - Place bet using DoneBtcPrediction contract
-// - Show BTC ticker + round timer
+// - BTC ticker + round timer
 // - Visual entry/close price around each round (frontend only)
 // - Simple BTC/USDT line chart
 // - External "Swap $DONE on Uniswap" button + copyable DONE CA
+// - Auto refresh minBet & poolBalance every 30s
 
 (function () {
   // ====== CONFIG ======
@@ -25,9 +26,7 @@
   const BET_ABI = [
     "function minBetAmount() view returns (uint256)",
     "function poolBalance() view returns (uint256)",
-    "function placeBet(uint8 side, uint256 amount) external",
-    "function currentEpoch() view returns (uint256)",
-    "function rounds(uint256) view returns (uint256 epoch,uint64 startTime,uint64 lockTime,uint64 closeTime,int256 lockPrice,int256 closePrice,uint256 totalUp,uint256 totalDown,uint8 result,bool locked,bool closed,bool feeTaken)"
+    "function placeBet(uint8 side, uint256 amount) external"
   ];
 
   // ====== STATE ======
@@ -43,8 +42,10 @@
     selectedMult: 1.2,
     minBetRaw: null,
     poolBalanceRaw: null,
-    lastBetVisual: null // { side, entryPrice, resolved }
+    lastBetVisual: null
   };
+
+  let poolRefreshInterval = null;
 
   const urlParams = new URLSearchParams(window.location.search || "");
   const isMini = urlParams.get("source") === "mini";
@@ -54,7 +55,7 @@
     lastChangePct: 0,
     roundSeconds: 60,
     timeLeft: 60,
-    history: [] // for simple BTC chart
+    history: []
   };
 
   // ====== DOM READY ======
@@ -86,7 +87,7 @@
     els.btnUp = document.getElementById("btn-up");
     els.btnDown = document.getElementById("btn-down");
 
-    // VISUAL PRICE INFO (entry / close)
+    // VISUAL PRICE INFO
     els.betEntryPrice = document.getElementById("bet-entry-price");
     els.betClosePrice = document.getElementById("bet-close-price");
     els.betOutcome = document.getElementById("bet-outcome");
@@ -95,8 +96,8 @@
     els.btcChart = document.getElementById("btc-chart");
 
     // EXTERNAL SWAP BUTTON + CA COPY
-    els.btnUniswap = document.getElementById("btn-open-swap");   // tombol besar biru di bawah Place bet
-    els.caCopy = document.getElementById("done-ca-copy");        // teks CA yang bisa di klik
+    els.btnUniswap = document.getElementById("btn-open-swap");
+    els.caCopy = document.getElementById("done-ca-copy");
 
     if (isMini && els.walletHint) {
       els.walletHint.textContent =
@@ -110,7 +111,7 @@
     startPriceTicker();
   });
 
-  // ====== SMALL HELPERS ======
+  // ====== HELPERS ======
 
   function setStatus(msg) {
     if (els.betStatus) els.betStatus.textContent = msg || "";
@@ -189,13 +190,8 @@
     }
   }
 
-  async function loadBetConfig() {
-    if (!state.signer) return;
-    if (!BET_CONTRACT_ADDRESS) {
-      setStatus("BET_CONTRACT_ADDRESS is not set in bet.js");
-      return;
-    }
-
+  async function refreshPoolInfo() {
+    if (!state.signer || !BET_CONTRACT_ADDRESS) return;
     try {
       const bet = new ethers.Contract(
         BET_CONTRACT_ADDRESS,
@@ -203,39 +199,38 @@
         state.signer
       );
 
-      try {
-        const minBet = await bet.minBetAmount();
-        state.minBetRaw = minBet.toString();
+      const [minBet, pool] = await Promise.all([
+        bet.minBetAmount(),
+        bet.poolBalance()
+      ]);
+
+      state.minBetRaw = minBet.toString();
+      state.poolBalanceRaw = pool.toString();
+
+      if (els.minBetHint) {
         const humanMin = ethers.utils.formatUnits(
-          minBet,
+          state.minBetRaw,
           state.doneDecimals || 18
         );
-        if (els.minBetHint) {
-          els.minBetHint.textContent =
-            `Minimum bet from contract: ${humanMin} DONE`;
-        }
-      } catch (e) {
-        console.warn("minBetAmount error", e);
+        els.minBetHint.textContent =
+          `Minimum bet from contract: ${humanMin} DONE`;
       }
 
-      try {
-        const pool = await bet.poolBalance();
-        state.poolBalanceRaw = pool.toString();
-        if (els.poolInfo) {
-          const humanPool = ethers.utils.formatUnits(
-            pool,
-            state.doneDecimals || 18
-          );
-          els.poolInfo.textContent =
-            `Pool: ${humanPool} DONE available for payouts`;
-        }
-      } catch (e) {
-        console.warn("poolBalance error", e);
+      if (els.poolInfo) {
+        const humanPool = ethers.utils.formatUnits(
+          state.poolBalanceRaw,
+          state.doneDecimals || 18
+        );
+        els.poolInfo.textContent =
+          `Pool: ${humanPool} DONE available for payouts`;
       }
     } catch (e) {
-      console.error("loadBetConfig error:", e);
-      setStatus("Failed to load bet configuration from contract.");
+      console.warn("refreshPoolInfo error:", e);
     }
+  }
+
+  async function loadBetConfig() {
+    await refreshPoolInfo();
   }
 
   // ====== WALLET & BET ======
@@ -257,8 +252,19 @@
           state.signer = null;
           state.address = null;
           state.doneBalanceRaw = "0";
+          state.minBetRaw = null;
+          state.poolBalanceRaw = null;
+
+          if (poolRefreshInterval) {
+            clearInterval(poolRefreshInterval);
+            poolRefreshInterval = null;
+          }
+
           if (els.walletAddr) els.walletAddr.textContent = "not connected";
           if (els.doneBalance) els.doneBalance.textContent = "0.0";
+          if (els.minBetHint) els.minBetHint.textContent = "Minimum bet: —";
+          if (els.poolInfo) els.poolInfo.textContent = "Pool: —";
+
           els.btnConnect.textContent = "🔗 Connect";
           els.btnConnect.classList.remove("connected");
           setStatus("Wallet disconnected. Connect again before betting.");
@@ -337,6 +343,13 @@
       await refreshDoneBalance();
       await loadBetConfig();
       setStatus("Wallet connected. You can now bet.");
+
+      if (poolRefreshInterval) clearInterval(poolRefreshInterval);
+      poolRefreshInterval = setInterval(() => {
+        if (state.signer && state.address) {
+          refreshPoolInfo();
+        }
+      }, 30000);
     } catch (e) {
       console.error(e);
       setStatus(
@@ -378,7 +391,6 @@
       return;
     }
 
-    // Simpan entry price visual saat user klik bet (frontend only)
     if (priceState.lastPrice && isFinite(priceState.lastPrice)) {
       state.lastBetVisual = {
         side: state.selectedSide || 0,
@@ -429,6 +441,26 @@
         }
       }
 
+      if (state.poolBalanceRaw) {
+        const pool = ethers.BigNumber.from(state.poolBalanceRaw);
+        if (pool.isZero()) {
+          setStatus(
+            "Pool is empty (0 DONE). Please wait until the contract is funded before betting."
+          );
+          return;
+        }
+        if (amount.gt(pool)) {
+          const humanPool = ethers.utils.formatUnits(
+            state.poolBalanceRaw,
+            state.doneDecimals || 18
+          );
+          setStatus(
+            `Bet amount is larger than pool balance (${humanPool} DONE). Try a smaller bet.`
+          );
+          return;
+        }
+      }
+
       const erc20 = new ethers.Contract(
         DONE_TOKEN_ADDRESS,
         ERC20_ABI,
@@ -472,7 +504,6 @@
         setStatus("Allowance OK. Sending bet transaction...");
       }
 
-      // Animasi: tambahkan class 'bet-pending' (biar bisa di-style di CSS)
       if (els.btnPlaceBet) {
         els.btnPlaceBet.classList.add("bet-pending");
       }
@@ -482,21 +513,22 @@
       setStatus("Bet tx sent: " + tx.hash + " (waiting for confirmation)…");
 
       const receipt = await tx.wait();
+      if (els.btnPlaceBet) els.btnPlaceBet.classList.remove("bet-pending");
+
       if (receipt.status === 1) {
         setStatus(
           "✅ Bet confirmed on-chain. Visual result will show at end of this countdown round."
         );
         await refreshDoneBalance();
+        await refreshPoolInfo();
         if (els.btnPlaceBet) {
-          els.btnPlaceBet.classList.remove("bet-pending");
           els.btnPlaceBet.classList.add("bet-ok");
           setTimeout(() => {
             els.btnPlaceBet.classList.remove("bet-ok");
           }, 600);
         }
       } else {
-        setStatus("Bet transaction failed or reverted.");
-        if (els.btnPlaceBet) els.btnPlaceBet.classList.remove("bet-pending");
+        setStatus("Bet transaction failed or reverted by the network.");
       }
     } catch (e) {
       console.error(e);
@@ -509,9 +541,14 @@
         e?.message ||
         "unknown error";
 
-      if (typeof msg === "string" && msg.includes("insufficient allowance")) {
-        msg =
-          "insufficient allowance — make sure your approve transaction is confirmed, then try again.";
+      if (typeof msg === "string") {
+        if (msg.toLowerCase().includes("execution reverted")) {
+          msg =
+            "execution reverted — this usually means the contract conditions are not met (round locked, pool empty, or bet size not allowed). Check pool/min bet and try again.";
+        } else if (msg.includes("insufficient allowance")) {
+          msg =
+            "insufficient allowance — make sure your approve transaction is confirmed, then try again.";
+        }
       }
 
       setStatus("Bet failed: " + msg);
@@ -521,7 +558,6 @@
   // ====== EXTERNAL SWAP BUTTON + COPY CA ======
 
   function setupExternalSwapAndCA() {
-    // tombol swap eksternal
     if (els.btnUniswap) {
       els.btnUniswap.textContent = "Swap $DONE on Uniswap";
       els.btnUniswap.addEventListener("click", () => {
@@ -532,7 +568,6 @@
       });
     }
 
-    // tampilan & copy CA
     if (els.caCopy) {
       els.caCopy.textContent = DONE_TOKEN_ADDRESS;
       els.caCopy.style.cursor = "pointer";
@@ -541,7 +576,7 @@
       els.caCopy.addEventListener("click", async () => {
         try {
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(DONE_TOKEN_ADDRESS);
+          await navigator.clipboard.writeText(DONE_TOKEN_ADDRESS);
           }
           const original = DONE_TOKEN_ADDRESS;
           els.caCopy.textContent = "Copied!";
@@ -573,7 +608,6 @@
     });
   }
 
-  // Visual resolve: compare entry vs close at end of a round
   function resolveVisualBet() {
     if (!state.lastBetVisual || state.lastBetVisual.resolved) return;
     const entry = state.lastBetVisual.entryPrice;
@@ -590,13 +624,13 @@
       (close > entry && state.lastBetVisual.side === 1) ||
       (close < entry && state.lastBetVisual.side === 0)
     ) {
-      msg = "✅ Your bet direction is correct based on BTC price.";
+      msg = "✅ Your bet direction is correct based on BTC price (visual only).";
       cls = "bet-win";
     } else if (close === entry) {
       msg = "⏸ BTC price closed at the same level as your entry.";
       cls = "bet-draw";
     } else {
-      msg = "❌ Your bet direction is wrong based on BTC price.";
+      msg = "❌ Your bet direction is wrong based on BTC price (visual only).";
       cls = "bet-lose";
     }
 
@@ -631,7 +665,6 @@
       }
       priceState.lastPrice = price;
 
-      // update text
       if (els.btcPrice) {
         els.btcPrice.textContent = price.toFixed(2);
       }
@@ -645,7 +678,6 @@
         );
       }
 
-      // push to history for chart
       priceState.history.push(price);
       if (priceState.history.length > 60) priceState.history.shift();
       renderBtcChart();
@@ -674,11 +706,9 @@
 
     ctx.clearRect(0, 0, width, height);
 
-    // background
     ctx.fillStyle = "#05060a";
     ctx.fillRect(0, 0, width, height);
 
-    // axis line
     ctx.strokeStyle = "#2c2f3a";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -686,7 +716,6 @@
     ctx.lineTo(width, height - 0.5);
     ctx.stroke();
 
-    // price line
     ctx.strokeStyle = "#00d17a";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -707,7 +736,6 @@
     setInterval(() => {
       priceState.timeLeft--;
       if (priceState.timeLeft <= 0) {
-        // round ended: resolve visual bet once per cycle
         resolveVisualBet();
         priceState.timeLeft = priceState.roundSeconds;
       }
