@@ -1,8 +1,13 @@
-// bet.js — Frontend taruhan $DONE di jaringan Base (kontrak DoneBet)
-(function () {
-  const DONE_TOKEN_ADDRESS = "0x3Da0Da9414D02c1E4cc4526a5a24F5eeEbfCEAd4";
-  const BET_CONTRACT_ADDRESS = "0xA24f111Ac03D9b03fFd9E04bD7A18e65f6bfddd7";
+// bet.js — DONE BTC Prediction (kontrak DoneBtcPrediction di Base)
 
+(function () {
+  // ====== KONFIGURASI ALAMAT KONTRAK ======
+  // Token DONE (ERC-20)
+  const DONE_TOKEN_ADDRESS = "0x3Da0Da9414D02c1E4cc4526a5a24F5eeEbfCEAd4";
+  // Kontrak prediction baru (DoneBtcPrediction)
+  const BET_CONTRACT_ADDRESS = "0xC107CDB70bC93912Aa6765C3a66Dd88cEE1aCDf0";
+
+  // ABI standar ERC20 minimal
   const ERC20_ABI = [
     "function balanceOf(address) view returns (uint256)",
     "function decimals() view returns (uint8)",
@@ -10,11 +15,13 @@
     "function approve(address spender, uint256 amount) returns (bool)"
   ];
 
+  // ABI utama DoneBtcPrediction (bagian yang dipakai frontend)
   const BET_ABI = [
     "function minBetAmount() view returns (uint256)",
     "function poolBalance() view returns (uint256)",
-    "function quotePayout(uint256 amount) view returns (uint256 reward, uint256 payout)",
-    "function placeBet(uint8 side, uint256 amount) external"
+    "function placeBet(uint8 side, uint256 amount) external",
+    "function currentEpoch() view returns (uint256)",
+    "function rounds(uint256) view returns (uint256 epoch,uint64 startTime,uint64 lockTime,uint64 closeTime,int256 lockPrice,int256 closePrice,uint256 totalUp,uint256 totalDown,uint8 result,bool locked,bool closed,bool feeTaken)"
   ];
 
   const els = {};
@@ -24,22 +31,33 @@
     address: null,
     doneDecimals: 18,
     doneBalanceRaw: "0",
-    selectedSide: 0,
+    selectedSide: 0, // 0 = Down, 1 = Up
     selectedMult: 1.2,
     minBetRaw: null,
     poolBalanceRaw: null
   };
 
+  // Flag jika dibuka dari mini app (source=mini)
   const urlParams = new URLSearchParams(window.location.search || "");
   const isMini = urlParams.get("source") === "mini";
 
+  // State visual untuk ticker BTC & timer round (frontend only)
+  const priceState = {
+    lastPrice: null,
+    lastChangePct: 0,
+    roundSeconds: 60,
+    timeLeft: 60
+  };
+
   document.addEventListener("DOMContentLoaded", () => {
+    // DOM element utama
     els.walletAddr = document.getElementById("wallet-addr-bet");
     els.networkName = document.getElementById("network-name");
     els.networkPill = document.getElementById("network-pill");
     els.doneBalance = document.getElementById("done-balance");
     els.btnConnect = document.getElementById("btn-connect");
     els.walletHint = document.getElementById("wallet-hint");
+
     els.modes = document.querySelectorAll(".mode-chip");
     els.betAmount = document.getElementById("bet-amount");
     els.quickAmounts = document.querySelectorAll(".qa");
@@ -50,18 +68,27 @@
     els.poolInfo = document.getElementById("pool-info");
     els.betStatus = document.getElementById("bet-status");
 
+    // elemen untuk ticker BTC & tombol UP/DOWN (kalau ada di HTML)
+    els.btcPrice = document.getElementById("btc-price");
+    els.btcChange = document.getElementById("btc-change");
+    els.roundTimer = document.getElementById("round-timer");
+    els.btnUp = document.getElementById("btn-up");
+    els.btnDown = document.getElementById("btn-down");
+
     if (isMini && els.walletHint) {
       els.walletHint.textContent =
         "Mini app: kamu menggunakan wallet akun Farcaster. Untuk ganti wallet, gunakan pengaturan di aplikasi Farcaster.";
     }
 
     setupUIHandlers();
+    setupRoundButtons();
+    startPriceTicker(); // safe walaupun elemen ticker belum ada, semua dicek dulu
   });
 
+  // ====== UTIL ======
+
   function setStatus(msg) {
-    if (els.betStatus) {
-      els.betStatus.textContent = msg;
-    }
+    if (els.betStatus) els.betStatus.textContent = msg;
   }
 
   function shortAddr(addr) {
@@ -75,14 +102,12 @@
 
     const net = await state.provider.getNetwork();
     const chainId = Number(net.chainId || 0);
-    if (chainId === 8453) {
-      return;
-    }
+    if (chainId === 8453) return; // Base mainnet
 
     try {
       await provider.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0x2105" }]
+        params: [{ chainId: "0x2105" }] // 8453
       });
     } catch (e) {
       console.warn("wallet_switchEthereumChain gagal:", e);
@@ -126,6 +151,7 @@
       ]);
       state.doneDecimals = Number(decimals) || 18;
       state.doneBalanceRaw = balance.toString();
+
       if (els.doneBalance) {
         const human = ethers.utils.formatUnits(
           state.doneBalanceRaw,
@@ -144,12 +170,15 @@
       setStatus("BET_CONTRACT_ADDRESS belum di-set di bet.js");
       return;
     }
+
     try {
       const bet = new ethers.Contract(
         BET_CONTRACT_ADDRESS,
         BET_ABI,
         state.signer
       );
+
+      // minimal bet
       try {
         const minBet = await bet.minBetAmount();
         state.minBetRaw = minBet.toString();
@@ -163,6 +192,8 @@
       } catch (e) {
         console.warn("loadBetConfig: minBetAmount error", e);
       }
+
+      // pool DONE dalam kontrak
       try {
         const pool = await bet.poolBalance();
         state.poolBalanceRaw = pool.toString();
@@ -183,18 +214,23 @@
     }
   }
 
+  // ====== UI HANDLERS ======
+
   function setupUIHandlers() {
+    // tombol connect kecil di kanan atas
     if (els.btnConnect) {
       els.btnConnect.addEventListener("click", async () => {
         if (!state.address) {
           await connectWallet();
           return;
         }
+
         if (isMini) {
           setStatus(
             "Wallet terhubung dari mini app. Untuk ganti wallet, gunakan pengaturan di aplikasi Farcaster."
           );
         } else {
+          // disconnect manual
           state.provider = null;
           state.signer = null;
           state.address = null;
@@ -253,6 +289,21 @@
     }
   }
 
+  // tombol UP / DOWN visual (mapping ke selectedSide)
+  function setupRoundButtons() {
+    if (!els.btnUp || !els.btnDown) return;
+    els.btnUp.addEventListener("click", () => {
+      state.selectedSide = 1; // UP
+      els.btnUp.classList.add("active");
+      els.btnDown.classList.remove("active");
+    });
+    els.btnDown.addEventListener("click", () => {
+      state.selectedSide = 0; // DOWN
+      els.btnDown.classList.add("active");
+      els.btnUp.classList.remove("active");
+    });
+  }
+
   async function connectWallet() {
     if (typeof window.ethereum === "undefined") {
       setStatus("Tidak ada wallet web3 (window.ethereum tidak ditemukan).");
@@ -261,22 +312,27 @@
           "Gunakan browser dengan wallet seperti MetaMask / Rabby.";
       return;
     }
+
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const accounts = await provider.send("eth_requestAccounts", []);
       const addr = accounts[0];
+
       state.provider = provider;
       state.signer = provider.getSigner();
       state.address = addr;
+
       if (els.walletAddr) els.walletAddr.textContent = shortAddr(addr);
       if (els.btnConnect) {
         els.btnConnect.textContent = shortAddr(addr);
         els.btnConnect.classList.add("connected");
       }
+
       await ensureBaseNetwork(provider.provider);
       await refreshNetworkInfo();
       await loadDoneTokenInfo();
       await loadBetConfig();
+
       setStatus("Wallet terhubung. Siap untuk bertaruh.");
     } catch (e) {
       console.error(e);
@@ -295,19 +351,19 @@
       if (els.payoutPreview) els.payoutPreview.textContent = "";
       return;
     }
-    try {
-      if (els.rewardPreview) {
-        els.rewardPreview.textContent =
-          "Perkiraan reward (tanpa modal): tergantung hasil kontrak DoneBet.";
-      }
-      if (els.payoutPreview) {
-        els.payoutPreview.textContent =
-          "Payout final (modal + reward) dihitung dan dikirim otomatis oleh kontrak DoneBet setelah event selesai.";
-      }
-    } catch (e) {
-      console.warn("updatePayoutPreview error:", e);
+
+    // Untuk sekarang hanya penjelasan teks, payout real dihitung kontrak
+    if (els.rewardPreview) {
+      els.rewardPreview.textContent =
+        "Perkiraan reward (tanpa modal): tergantung hasil kontrak DoneBtcPrediction.";
+    }
+    if (els.payoutPreview) {
+      els.payoutPreview.textContent =
+        "Payout final (modal + reward) dihitung dan dikirim otomatis oleh kontrak setelah round ditutup.";
     }
   }
+
+  // ====== FLOW PLACE BET ======
 
   async function placeBetFlow() {
     if (!state.signer || !state.address) {
@@ -328,6 +384,7 @@
         state.doneDecimals || 18
       );
 
+      // cek minimal bet
       if (state.minBetRaw) {
         const min = ethers.BigNumber.from(state.minBetRaw);
         if (amount.lt(min)) {
@@ -340,6 +397,7 @@
         }
       }
 
+      // cek saldo
       if (state.doneBalanceRaw) {
         const bal = ethers.BigNumber.from(state.doneBalanceRaw);
         if (bal.lt(amount)) {
@@ -380,6 +438,7 @@
           ethers.constants.MaxUint256
         );
         await txApprove.wait();
+
         allowance = await erc20.allowance(
           state.address,
           BET_CONTRACT_ADDRESS
@@ -390,19 +449,20 @@
           );
           return;
         }
+
         setStatus("Approve selesai. Mengirim transaksi bet…");
       } else {
         setStatus("Allowance cukup. Mengirim transaksi bet…");
       }
 
-      const side = state.selectedSide || 0;
+      const side = state.selectedSide || 0; // 0=Down, 1=Up
       const tx = await bet.placeBet(side, amount);
       setStatus("Tx bet terkirim: " + tx.hash + " (menunggu konfirmasi)…");
 
       const receipt = await tx.wait();
       if (receipt.status === 1) {
         setStatus(
-          "✅ Bet sukses! Kalau kamu menang, payout (modal + reward) sudah otomatis masuk ke wallet ini."
+          "✅ Bet sukses! Klaim reward bisa dilakukan setelah round ditutup (lock & close)."
         );
         await loadDoneTokenInfo();
       } else {
@@ -419,10 +479,71 @@
 
       if (typeof msg === "string" && msg.includes("insufficient allowance")) {
         msg =
-          "insufficient allowance — allowance $DONE ke kontrak DoneBet masih kurang. Pastikan transaksi approve berhasil, lalu coba lagi.";
+          "insufficient allowance — allowance $DONE ke kontrak masih kurang. Pastikan transaksi approve berhasil, lalu coba lagi.";
       }
 
       setStatus("Bet gagal: " + msg);
     }
+  }
+
+  // ====== BTC TICKER & ROUND TIMER (FRONTEND SAJA) ======
+
+  function startPriceTicker() {
+    // update harga pertama, lalu setiap 8 detik
+    updateBtcPrice();
+    setInterval(updateBtcPrice, 8000);
+    startRoundTimer();
+  }
+
+  async function updateBtcPrice() {
+    if (!els.btcPrice && !els.btcChange) return; // kalau tidak ada elemen, skip
+    try {
+      const res = await fetch(
+        "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
+      );
+      const data = await res.json();
+      const price = parseFloat(data.price || "0");
+      if (!isFinite(price) || price <= 0) return;
+
+      if (priceState.lastPrice !== null) {
+        const diff = price - priceState.lastPrice;
+        const pct = (diff / priceState.lastPrice) * 100;
+        priceState.lastChangePct = pct;
+      }
+      priceState.lastPrice = price;
+
+      if (els.btcPrice) {
+        els.btcPrice.textContent = price.toFixed(2);
+      }
+      if (els.btcChange) {
+        const pct = priceState.lastChangePct;
+        els.btcChange.textContent =
+          (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
+        els.btcChange.classList.remove("up", "down", "neutral");
+        els.btcChange.classList.add(
+          pct > 0.05 ? "up" : pct < -0.05 ? "down" : "neutral"
+        );
+      }
+    } catch (e) {
+      console.warn("updateBtcPrice error:", e);
+    }
+  }
+
+  function startRoundTimer() {
+    if (!els.roundTimer) return;
+    priceState.timeLeft = priceState.roundSeconds;
+    updateRoundTimer();
+    setInterval(() => {
+      priceState.timeLeft--;
+      if (priceState.timeLeft <= 0) {
+        priceState.timeLeft = priceState.roundSeconds;
+      }
+      updateRoundTimer();
+    }, 1000);
+  }
+
+  function updateRoundTimer() {
+    if (!els.roundTimer) return;
+    els.roundTimer.textContent = priceState.timeLeft + "s";
   }
 })();
