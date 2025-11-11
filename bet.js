@@ -1,8 +1,10 @@
-// bet.js — DONE Bet mini app (no on-chain swap)
+// bet.js — DONE Bet mini app (no on-chain swap, external Uniswap link + visual price + BTC chart)
 // - Connect wallet on Base
 // - Place bet using DoneBtcPrediction contract
 // - Show BTC ticker + round timer
-// - External Uniswap button + copyable DONE CA
+// - Visual entry/close price around each round (frontend only)
+// - Simple BTC/USDT line chart
+// - External "Swap $DONE on Uniswap" button + copyable DONE CA
 
 (function () {
   // ====== CONFIG ======
@@ -40,7 +42,8 @@
     selectedSide: 0,
     selectedMult: 1.2,
     minBetRaw: null,
-    poolBalanceRaw: null
+    poolBalanceRaw: null,
+    lastBetVisual: null // { side, entryPrice, resolved }
   };
 
   const urlParams = new URLSearchParams(window.location.search || "");
@@ -50,7 +53,8 @@
     lastPrice: null,
     lastChangePct: 0,
     roundSeconds: 60,
-    timeLeft: 60
+    timeLeft: 60,
+    history: [] // for simple BTC chart
   };
 
   // ====== DOM READY ======
@@ -81,6 +85,14 @@
     els.roundTimer = document.getElementById("round-timer");
     els.btnUp = document.getElementById("btn-up");
     els.btnDown = document.getElementById("btn-down");
+
+    // VISUAL PRICE INFO (entry / close)
+    els.betEntryPrice = document.getElementById("bet-entry-price");
+    els.betClosePrice = document.getElementById("bet-close-price");
+    els.betOutcome = document.getElementById("bet-outcome");
+
+    // BTC CHART
+    els.btcChart = document.getElementById("btc-chart");
 
     // EXTERNAL SWAP BUTTON + CA COPY
     els.btnUniswap = document.getElementById("btn-open-swap");   // tombol besar biru di bawah Place bet
@@ -366,6 +378,25 @@
       return;
     }
 
+    // Simpan entry price visual saat user klik bet (frontend only)
+    if (priceState.lastPrice && isFinite(priceState.lastPrice)) {
+      state.lastBetVisual = {
+        side: state.selectedSide || 0,
+        entryPrice: priceState.lastPrice,
+        resolved: false
+      };
+      if (els.betEntryPrice) {
+        els.betEntryPrice.textContent = priceState.lastPrice.toFixed(2);
+      }
+      if (els.betClosePrice) {
+        els.betClosePrice.textContent = "—";
+      }
+      if (els.betOutcome) {
+        els.betOutcome.textContent = "Waiting for round close…";
+        els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
+      }
+    }
+
     try {
       const amount = ethers.utils.parseUnits(
         rawAmount.replace(",", "."),
@@ -441,6 +472,11 @@
         setStatus("Allowance OK. Sending bet transaction...");
       }
 
+      // Animasi: tambahkan class 'bet-pending' (biar bisa di-style di CSS)
+      if (els.btnPlaceBet) {
+        els.btnPlaceBet.classList.add("bet-pending");
+      }
+
       const side = state.selectedSide || 0;
       const tx = await bet.placeBet(side, amount);
       setStatus("Bet tx sent: " + tx.hash + " (waiting for confirmation)…");
@@ -448,14 +484,24 @@
       const receipt = await tx.wait();
       if (receipt.status === 1) {
         setStatus(
-          "✅ Bet confirmed. Rewards will be claimable after this round is closed."
+          "✅ Bet confirmed on-chain. Visual result will show at end of this countdown round."
         );
         await refreshDoneBalance();
+        if (els.btnPlaceBet) {
+          els.btnPlaceBet.classList.remove("bet-pending");
+          els.btnPlaceBet.classList.add("bet-ok");
+          setTimeout(() => {
+            els.btnPlaceBet.classList.remove("bet-ok");
+          }, 600);
+        }
       } else {
         setStatus("Bet transaction failed or reverted.");
+        if (els.btnPlaceBet) els.btnPlaceBet.classList.remove("bet-pending");
       }
     } catch (e) {
       console.error(e);
+      if (els.btnPlaceBet) els.btnPlaceBet.classList.remove("bet-pending");
+
       let msg =
         e?.reason ||
         (e?.data && e.data.message) ||
@@ -482,7 +528,6 @@
         const url =
           "https://app.uniswap.org/swap?chain=base&outputCurrency=" +
           DONE_TOKEN_ADDRESS;
-        // di browser biasa buka tab baru, di mini app biasanya tetap in-app
         window.open(url, "_blank");
       });
     }
@@ -506,8 +551,7 @@
             els.caCopy.classList.remove("copied");
           }, 1000);
         } catch (e) {
-          // fallback
-          alert("DONE token CA:\n" + DONE_TOKEN_ADDRESS);
+          alert("DONE token contract address:\n" + DONE_TOKEN_ADDRESS);
         }
       });
     }
@@ -529,7 +573,40 @@
     });
   }
 
-  // ====== BTC TICKER & ROUND TIMER ======
+  // Visual resolve: compare entry vs close at end of a round
+  function resolveVisualBet() {
+    if (!state.lastBetVisual || state.lastBetVisual.resolved) return;
+    const entry = state.lastBetVisual.entryPrice;
+    const close = priceState.lastPrice;
+    if (!entry || !close || !els.betOutcome) return;
+
+    if (els.betClosePrice) {
+      els.betClosePrice.textContent = close.toFixed(2);
+    }
+
+    let msg;
+    let cls;
+    if (
+      (close > entry && state.lastBetVisual.side === 1) ||
+      (close < entry && state.lastBetVisual.side === 0)
+    ) {
+      msg = "✅ Your bet direction is correct based on BTC price.";
+      cls = "bet-win";
+    } else if (close === entry) {
+      msg = "⏸ BTC price closed at the same level as your entry.";
+      cls = "bet-draw";
+    } else {
+      msg = "❌ Your bet direction is wrong based on BTC price.";
+      cls = "bet-lose";
+    }
+
+    els.betOutcome.textContent = msg;
+    els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
+    els.betOutcome.classList.add(cls);
+    state.lastBetVisual.resolved = true;
+  }
+
+  // ====== BTC TICKER, CHART & ROUND TIMER ======
 
   function startPriceTicker() {
     updateBtcPrice();
@@ -538,7 +615,7 @@
   }
 
   async function updateBtcPrice() {
-    if (!els.btcPrice && !els.btcChange) return;
+    if (!els.btcPrice && !els.btcChange && !els.btcChart) return;
     try {
       const res = await fetch(
         "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
@@ -554,6 +631,7 @@
       }
       priceState.lastPrice = price;
 
+      // update text
       if (els.btcPrice) {
         els.btcPrice.textContent = price.toFixed(2);
       }
@@ -566,9 +644,60 @@
           pct > 0.05 ? "up" : pct < -0.05 ? "down" : "neutral"
         );
       }
+
+      // push to history for chart
+      priceState.history.push(price);
+      if (priceState.history.length > 60) priceState.history.shift();
+      renderBtcChart();
     } catch (e) {
       console.warn("updateBtcPrice error:", e);
     }
+  }
+
+  function renderBtcChart() {
+    if (!els.btcChart || !els.btcChart.getContext) return;
+    const ctx = els.btcChart.getContext("2d");
+    const width = els.btcChart.width || els.btcChart.clientWidth || 320;
+    const height = els.btcChart.height || els.btcChart.clientHeight || 140;
+
+    const data = priceState.history || [];
+    if (!data.length) {
+      ctx.clearRect(0, 0, width, height);
+      return;
+    }
+
+    const min = Math.min.apply(null, data);
+    const max = Math.max.apply(null, data);
+    const pad = (max - min) * 0.1 || 1;
+    const low = min - pad;
+    const high = max + pad;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // background
+    ctx.fillStyle = "#05060a";
+    ctx.fillRect(0, 0, width, height);
+
+    // axis line
+    ctx.strokeStyle = "#2c2f3a";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, height - 0.5);
+    ctx.lineTo(width, height - 0.5);
+    ctx.stroke();
+
+    // price line
+    ctx.strokeStyle = "#00d17a";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    data.forEach((p, i) => {
+      const x = (i / Math.max(data.length - 1, 1)) * width;
+      const t = (p - low) / (high - low);
+      const y = height - t * (height - 8) - 4;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
   }
 
   function startRoundTimer() {
@@ -578,6 +707,8 @@
     setInterval(() => {
       priceState.timeLeft--;
       if (priceState.timeLeft <= 0) {
+        // round ended: resolve visual bet once per cycle
+        resolveVisualBet();
         priceState.timeLeft = priceState.roundSeconds;
       }
       updateRoundTimer();
