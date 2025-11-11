@@ -13,7 +13,7 @@
 
   const BASE_CHAIN_ID = 8453;
   const DONE_TOKEN_ADDRESS = "0x3Da0Da9414D02c1E4cc4526a5a24F5eeEbfCEAd4";
-  const BET_CONTRACT_ADDRESS = "0xA24f111Ac03D9b03fFd9E04bD7A18e65f6bfddd7";
+  const BET_CONTRACT_ADDRESS = "0xC107CDB70bC93912Aa6765C3a66Dd88cEE1aCDf0";
   // Kontrak pool lama yang kamu kirim (DoneBet)
   const POOL_CONTRACT_ADDRESS = "0xa24F111Ac03D9B03fFD9E04bD7A18E65F6BFdDd7";
   // Minimum bet berdasarkan konfigurasi kontrak pool: 2000 DONE
@@ -41,7 +41,7 @@
     address: null,
     doneDecimals: 18,
     doneBalanceRaw: "0",
-    selectedSide: 0,
+    selectedSide: null, // 0 = DOWN, 1 = UP, null = not selected
     selectedMult: 1.2,
     minBetRaw: null,
     poolBalanceRaw: null,
@@ -91,6 +91,7 @@
     els.btnDown = document.getElementById("btn-down");
 
     // VISUAL PRICE INFO
+    els.betDirection = document.getElementById("bet-direction");
     els.betEntryPrice = document.getElementById("bet-entry-price");
     els.betClosePrice = document.getElementById("bet-close-price");
     els.betOutcome = document.getElementById("bet-outcome");
@@ -387,12 +388,25 @@
       return;
     }
 
+    // user must choose direction first
+    if (state.selectedSide !== 0 && state.selectedSide !== 1) {
+      setStatus("Choose a direction (UP or DOWN) before placing a bet.");
+      return;
+    }
+
     if (priceState.lastPrice && isFinite(priceState.lastPrice)) {
       state.lastBetVisual = {
-        side: state.selectedSide || 0,
+        side: state.selectedSide,
         entryPrice: priceState.lastPrice,
         resolved: false
       };
+      const dirText =
+        state.selectedSide === 1
+          ? "UP — you predict BTC goes up"
+          : "DOWN — you predict BTC goes down";
+      if (els.betDirection) {
+        els.betDirection.textContent = dirText;
+      }
       if (els.betEntryPrice) {
         els.betEntryPrice.textContent = priceState.lastPrice.toFixed(2);
       }
@@ -475,11 +489,11 @@
 
       if (allowance.lt(amount)) {
         setStatus(
-          "Allowance is too low. Sending approve transaction (for this bet only)..."
+          "Allowance is too low. Sending approve transaction (max allowance)..."
         );
         const txApprove = await erc20.approve(
           BET_CONTRACT_ADDRESS,
-          amount
+          ethers.constants.MaxUint256
         );
         await txApprove.wait();
 
@@ -503,7 +517,11 @@
         els.btnPlaceBet.classList.add("bet-pending");
       }
 
-      const side = state.selectedSide || 0;
+      const side = state.selectedSide;
+      if (side !== 0 && side !== 1) {
+        setStatus("Invalid bet direction. Please refresh the page and choose UP or DOWN again.");
+        return;
+      }
       const tx = await bet.placeBet(side, amount);
       setStatus("Bet tx sent: " + tx.hash + " (waiting for confirmation)…");
 
@@ -609,23 +627,37 @@
     const close = priceState.lastPrice;
     if (!entry || !close || !els.betOutcome) return;
 
+    const side = state.lastBetVisual.side;
+    const dirWord = side === 1 ? "UP" : "DOWN";
+    const entryStr = entry.toFixed(2);
+    const closeStr = close.toFixed(2);
+
+    if (els.betEntryPrice) {
+      els.betEntryPrice.textContent = entryStr;
+    }
     if (els.betClosePrice) {
-      els.betClosePrice.textContent = close.toFixed(2);
+      els.betClosePrice.textContent = closeStr;
+    }
+    if (els.betDirection) {
+      els.betDirection.textContent =
+        dirWord === "UP"
+          ? "UP — you predicted BTC goes up"
+          : "DOWN — you predicted BTC goes down";
     }
 
     let msg;
     let cls;
     if (
-      (close > entry && state.lastBetVisual.side === 1) ||
-      (close < entry && state.lastBetVisual.side === 0)
+      (close > entry && side === 1) ||
+      (close < entry && side === 0)
     ) {
-      msg = "✅ Your bet direction is correct based on BTC price (visual only).";
+      msg = `✅ WIN — you chose ${dirWord}. Entry ${entryStr}, close ${closeStr}. (visual only)`;
       cls = "bet-win";
     } else if (close === entry) {
-      msg = "⏸ BTC price closed at the same level as your entry.";
+      msg = `⏸ DRAW — BTC closed at the same level. Entry ${entryStr}, close ${closeStr}. (visual only)`;
       cls = "bet-draw";
     } else {
-      msg = "❌ Your bet direction is wrong based on BTC price (visual only).";
+      msg = `❌ LOSE — you chose ${dirWord}. Entry ${entryStr}, close ${closeStr}. (visual only)`;
       cls = "bet-lose";
     }
 
