@@ -13,7 +13,7 @@
 
   const BASE_CHAIN_ID = 8453;
   const DONE_TOKEN_ADDRESS = "0x3Da0Da9414D02c1E4cc4526a5a24F5eeEbfCEAd4";
-  const BET_CONTRACT_ADDRESS = "0xC107CDB70bC93912Aa6765C3a66Dd88cEE1aCDf0";
+  const BET_CONTRACT_ADDRESS = "0xA24f111Ac03D9b03fFd9E04bD7A18e65f6bfddd7";
   // Kontrak pool lama yang kamu kirim (DoneBet)
   const POOL_CONTRACT_ADDRESS = "0xa24F111Ac03D9B03fFD9E04bD7A18E65F6BFdDd7";
   // Minimum bet berdasarkan konfigurasi kontrak pool: 2000 DONE
@@ -489,11 +489,11 @@
 
       if (allowance.lt(amount)) {
         setStatus(
-          "Allowance is too low. Sending approve transaction (max allowance)..."
+          "Allowance is too low. Sending approve transaction (for this bet only)..."
         );
         const txApprove = await erc20.approve(
           BET_CONTRACT_ADDRESS,
-          ethers.constants.MaxUint256
+          amount
         );
         await txApprove.wait();
 
