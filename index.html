@@ -66,7 +66,7 @@
           <span class="bet-row-value" id="wallet-addr">—</span>
         </div>
         <p class="bet-hint">
-          Use the same wallet here, in the airdrop, and in the bet dApp on the Base network.
+          Use the same wallet here, in the airdrop, and in the bet contract on the Base network.
         </p>
 
         <!-- Quest steps -->
@@ -142,43 +142,156 @@
         </div>
       </section>
 
-      <!-- BET VIEW -->
-      <section class="bet-section view-hidden" id="view-bet">
-        <div class="bet-section-head">
-          <h2 class="bet-section-title">Bet &amp; earn $DONE</h2>
-          <span class="bet-section-caption">
-            BTC up/down prediction on Base
-          </span>
-        </div>
+      <!-- BET VIEW (FULL BET UI, NO NEW TAB) -->
+      <div id="view-bet" class="view-hidden">
+        <!-- small header row for network + connect -->
+        <section class="bet-section">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Bet &amp; earn $DONE</h2>
+            <span class="bet-section-caption">
+              BTC up/down prediction on Base
+            </span>
+          </div>
+          <div class="bet-subheader-inline">
+            <span class="chip chip-network" id="network-pill">
+              Network: <span id="network-name">—</span>
+            </span>
+            <button class="chip chip-wallet" id="btn-connect">
+              🔗 Connect
+            </button>
+          </div>
+          <p class="bet-hint">
+            In mini app mode you use the wallet from your Farcaster account.
+            To change wallet, use Farcaster settings. In a normal browser you
+            can connect / disconnect freely.
+          </p>
+        </section>
 
-        <p class="bet-hint">
-          Use your $DONE to take positions on BTC price. The on-chain
-          prediction contract decides winners based on Chainlink oracle data.
-        </p>
-
-        <div class="bet-highlight">
-          <div class="bet-highlight-main">
-            <div class="bet-highlight-title">Live BTC prediction</div>
-            <div class="bet-highlight-sub">
-              Place UP / DOWN bets in rounds and claim rewards if you are on
-              the winning side.
+        <!-- ticker -->
+        <section class="bet-section bet-section-ticker">
+          <div class="bet-ticker-main">
+            <div class="bet-ticker-pair">
+              <span class="dot-live"></span>
+              <span class="pair">BTC / USDT</span>
+            </div>
+            <div class="bet-ticker-price">
+              <span id="btc-price">—</span>
+              <span id="btc-change" class="change neutral">0.00%</span>
             </div>
           </div>
-          <div class="bet-highlight-side">
-            <div class="pair-small">BTC / USDT</div>
-            <div class="pair-price" id="mini-btc-price">—</div>
+          <div class="bet-ticker-round">
+            <div class="round-label">Visual round timer</div>
+            <div class="round-timer" id="round-timer">60s</div>
+            <div class="round-buttons">
+              <button class="round-btn up" data-side="1" id="btn-up">
+                UP
+              </button>
+              <button class="round-btn down" data-side="0" id="btn-down">
+                DOWN
+              </button>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <button class="btn-primary" id="btn-open-bet">
-          🎰 Open Bet dApp
-        </button>
+        <!-- wallet info -->
+        <section class="bet-section">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Wallet</h2>
+          </div>
+          <div class="bet-row">
+            <span class="bet-row-label">Address</span>
+            <span class="bet-row-value" id="wallet-addr-bet">not connected</span>
+          </div>
+          <div class="bet-row">
+            <span class="bet-row-label">$DONE balance</span>
+            <span class="bet-row-value" id="done-balance">0.0</span>
+          </div>
+          <p class="bet-hint" id="wallet-hint">
+            Mini app: you use the wallet from your Farcaster account. To switch
+            wallet, change it in the Farcaster app. In a normal browser you can
+            connect / disconnect freely.
+          </p>
+        </section>
 
-        <p class="bet-hint">
-          The bet dApp will open in a new window / tab. In the mini app
-          environment you use your Farcaster account wallet.
-        </p>
-      </section>
+        <!-- mode -->
+        <section class="bet-section">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Bet mode</h2>
+            <span class="bet-section-caption">
+              choose the risk profile you like
+            </span>
+          </div>
+          <div class="bet-modes">
+            <button class="mode-chip active" data-mult="1.2" data-side="0">
+              <span class="mode-label">Safe</span>
+              <span class="mode-sub">~1.2x</span>
+            </button>
+            <button class="mode-chip" data-mult="1.5" data-side="1">
+              <span class="mode-label">Normal</span>
+              <span class="mode-sub">~1.5x</span>
+            </button>
+            <button class="mode-chip" data-mult="2.0" data-side="1">
+              <span class="mode-label">Degen</span>
+              <span class="mode-sub">2x+</span>
+            </button>
+          </div>
+          <p class="bet-hint">
+            These labels are just UI presets — the final payout is computed by
+            the DoneBtcPrediction smart contract.
+          </p>
+        </section>
+
+        <!-- amount -->
+        <section class="bet-section">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Amount</h2>
+            <span class="bet-section-caption">
+              choose how many $DONE you want to risk in this round
+            </span>
+          </div>
+
+          <div class="amount-wrap">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              id="bet-amount"
+              class="amount-input"
+              placeholder="0.00"
+            />
+            <span class="amount-unit">DONE</span>
+          </div>
+
+          <div class="qa-row">
+            <button class="qa" data-perc="10">10%</button>
+            <button class="qa" data-perc="25">25%</button>
+            <button class="qa" data-perc="50">50%</button>
+            <button class="qa" data-perc="100">MAX</button>
+          </div>
+
+          <div class="bet-info">
+            <p class="bet-hint" id="min-bet-hint">
+              Minimum bet from contract: loading…
+            </p>
+            <p class="bet-hint" id="pool-info"></p>
+            <p class="bet-hint" id="reward-preview"></p>
+            <p class="bet-hint" id="payout-preview"></p>
+          </div>
+        </section>
+
+        <!-- action -->
+        <section class="bet-section bet-section-action">
+          <div class="bet-section-head">
+            <h2 class="bet-section-title">Action</h2>
+          </div>
+          <button class="btn-primary" id="btn-place-bet">
+            🎰 Place bet
+          </button>
+          <div class="status-line" id="bet-status">
+            Set an amount and select a mode before placing a bet.
+          </div>
+        </section>
+      </div>
 
       <footer class="bet-footer">
         DONE Hub • $DONE on Base • Use responsibly
@@ -188,5 +301,7 @@
 
   <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script src="/mini-app.js"></script>
+  <!-- bet logic reused inside Bet tab -->
+  <script src="/bet.js"></script>
 </body>
 </html>
