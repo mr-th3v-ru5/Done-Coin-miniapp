@@ -1,13 +1,36 @@
-/* ========= BET PAGE LAYOUT ========= */
+:root {
+  --bg: #020617;
+  --card: #020617;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.22);
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --danger: #f97373;
+  --radius: 18px;
+  --shadow: 0 24px 70px rgba(15, 23, 42, 0.9);
+}
+
+/* RESET */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* GLOBAL PAGE LAYOUT */
 
 .bet-body {
-  margin: 0;
   min-height: 100vh;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "Segoe UI", sans-serif;
-  background:
-    radial-gradient(circle at top, #0f172a 0, #020617 40%, #020617 100%);
-  color: #e5e7eb;
+  background: radial-gradient(circle at top, #0f172a 0, #020617 40%, #020617 100%);
+  color: var(--text);
 }
 
 .bet-shell {
@@ -23,7 +46,7 @@
   background: radial-gradient(circle at top, #020617 0, #020617 55%, #020617 100%);
   border-radius: 24px;
   padding: 18px 16px 20px;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.9);
+  box-shadow: var(--shadow);
   border: 1px solid rgba(148, 163, 184, 0.14);
   animation: betFadeUp 0.35s ease-out;
 }
@@ -35,7 +58,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .bet-brand {
@@ -68,7 +91,7 @@
 
 .bet-subtitle {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .bet-header-right {
@@ -117,6 +140,38 @@
   box-shadow: 0 10px 26px rgba(37, 99, 235, 0.45);
 }
 
+.chip-score {
+  font-size: 11px;
+}
+
+/* HUB TABS (AIRDROP / BET) */
+
+.hub-tabs {
+  display: flex;
+  margin-bottom: 10px;
+  margin-top: 4px;
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.hub-tab {
+  flex: 1;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 0;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease-out, color 0.15s ease-out;
+}
+
+.hub-tab.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
 /* SECTIONS */
 
 .bet-section {
@@ -163,7 +218,7 @@
 
 .bet-section-caption {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .bet-row {
@@ -175,7 +230,7 @@
 }
 
 .bet-row-label {
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .bet-row-value {
@@ -183,20 +238,92 @@
   font-size: 11px;
 }
 
-/* HINT / INFO */
-
 .bet-hint {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--muted);
   margin-top: 6px;
   line-height: 1.4;
 }
 
-.bet-info {
-  margin-top: 6px;
+.bet-divider {
+  height: 1px;
+  margin: 10px 0 8px;
+  background: radial-gradient(circle, rgba(51, 65, 85, 0.9), transparent);
 }
 
-/* MODES */
+/* QUEST STEPS */
+
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.step {
+  display: flex;
+  gap: 8px;
+  padding: 6px 6px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.12s ease-out, transform 0.05s ease-out;
+}
+
+.step:hover {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.step-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.step-body .step-title {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.step-body .step-text {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.step.done .step-num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+/* PROGRESS BAR */
+
+.progress-wrap {
+  margin-top: 8px;
+}
+
+.progress-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.progress-label {
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+/* BET MODES */
 
 .bet-modes {
   display: grid;
@@ -210,7 +337,7 @@
   padding: 7px 6px;
   border: 1px solid rgba(148, 163, 184, 0.5);
   background: rgba(15, 23, 42, 0.95);
-  color: #e5e7eb;
+  color: var(--text);
   font-size: 11px;
   display: flex;
   flex-direction: column;
@@ -227,7 +354,7 @@
 
 .mode-sub {
   font-size: 10px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .mode-chip.active {
@@ -269,7 +396,7 @@
   border-radius: 999px;
   background: rgba(31, 41, 55, 0.9);
   border: 1px solid rgba(55, 65, 81, 0.9);
-  color: #e5e7eb;
+  color: var(--text);
 }
 
 .qa-row {
@@ -284,7 +411,7 @@
   border-radius: 999px;
   border: 1px solid rgba(55, 65, 81, 0.9);
   background: rgba(15, 23, 42, 0.95);
-  color: #e5e7eb;
+  color: var(--text);
   font-size: 11px;
   padding: 5px 0;
   cursor: pointer;
@@ -298,11 +425,7 @@
   transform: translateY(-0.5px);
 }
 
-/* ACTION */
-
-.bet-section-action {
-  margin-top: 4px;
-}
+/* BUTTONS */
 
 .btn-primary {
   width: 100%;
@@ -339,12 +462,158 @@
   box-shadow: none;
 }
 
+/* STATUS */
+
 .status-line {
   margin-top: 8px;
   font-size: 11px;
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* HIGHLIGHT CARD IN HUB BET TAB */
+
+.bet-highlight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 16px;
+  padding: 10px 10px;
+  background: radial-gradient(circle at top left, #1d4ed8 0, #020617 80%);
+  border: 1px solid rgba(59, 130, 246, 0.7);
+  margin-bottom: 10px;
+}
+
+.bet-highlight-main {
+  max-width: 70%;
+}
+
+.bet-highlight-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bet-highlight-sub {
+  font-size: 11px;
+  color: #d1d5db;
+}
+
+.bet-highlight-side {
+  text-align: right;
+}
+
+.pair-small {
+  font-size: 10px;
+  color: #cbd5f5;
+}
+
+.pair-price {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+/* TICKER BLOCK (BET PAGE) */
+
+.bet-section-ticker {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 10px;
+}
+
+.bet-ticker-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bet-ticker-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.dot-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  animation: ping 1.4s infinite;
+}
+
+.bet-ticker-price {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+.bet-ticker-price .change {
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+.change.up {
+  color: #4ade80;
+}
+
+.change.down {
+  color: #f97373;
+}
+
+.change.neutral {
+  color: var(--muted);
+}
+
+.bet-ticker-round {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.round-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.round-timer {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.round-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.round-btn {
+  min-width: 56px;
+  padding: 4px 0;
+  border-radius: 999px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  font-size: 11px;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.95);
+  color: var(--text);
+  transition: background 0.12s, transform 0.08s, box-shadow 0.12s;
+}
+
+.round-btn.up {
+  border-color: rgba(34, 197, 94, 0.8);
+}
+
+.round-btn.down {
+  border-color: rgba(248, 113, 113, 0.8);
+}
+
+.round-btn.active {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.45);
+  background: radial-gradient(circle at top, #1d4ed8 0, #020617 90%);
 }
 
 /* FOOTER */
@@ -356,7 +625,13 @@
   text-align: center;
 }
 
-/* SMALL SCREENS */
+/* VIEW HIDDEN */
+
+.view-hidden {
+  display: none;
+}
+
+/* RESPONSIVE */
 
 @media (max-width: 420px) {
   .bet-card {
@@ -373,7 +648,7 @@
   }
 }
 
-/* ANIMATION */
+/* ANIMATIONS */
 
 @keyframes betFadeUp {
   from {
@@ -383,5 +658,17 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ping {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
   }
 }
