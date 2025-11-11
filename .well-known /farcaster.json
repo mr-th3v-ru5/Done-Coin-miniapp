@@ -1,21 +1,20 @@
 {
-  "frame": {
-    "name": "DONE COIN",
+  "accountAssociation": {
+    "header": "eyJmaWQiOjQ0MTYyNiwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGZhN0E2MTEzRGFCNjQ0Njk2OTRiNjdiRTU4RjIwN2FCODgwZjdkRDMifQ",
+    "payload": "eyJkb21haW4iOiJkb25lLWNvaW4tbWluaWFwcC52ZXJjZWwuYXBwIn0",
+    "signature": "gJfNQ7CxAytHFmEehecqMBeOmYJ/i13sjY2ePYaX0ttRmX40fDQxpXLi7nR+vDos3KX5Ho9WXn2lEKyOUpuyzBw="
+  },
+  "miniapp": {
     "version": "1",
-    "iconUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
+    "name": "DONE COIN",
+    "description": "DONE COIN is a mini app for simple onchain BTC predictions on Base. Place 60-second bets using DONE, climb the leaderboard, and share wins with your Farcaster friends.",
     "homeUrl": "https://done-coin-miniapp.vercel.app",
-    "imageUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
-    "buttonTitle": "Play DONE COIN",
+    "iconUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
     "splashImageUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
     "splashBackgroundColor": "#050816",
-    "webhookUrl": "https://done-coin-miniapp.vercel.app/api/webhook",
     "subtitle": "Predict BTC, earn DONE",
-    "description": "DONE COIN is a mini app for simple onchain BTC predictions on Base. Place 60-second bets using DONE, climb the leaderboard, and share wins with your Farcaster friends.",
-    "primaryCategory": "games",
-    "screenshotUrls": [
-      "https://done-coin-miniapp.vercel.app/logo.jpg"
-    ],
     "heroImageUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
+    "primaryCategory": "games",
     "tags": [
       "btc",
       "prediction",
@@ -24,14 +23,9 @@
       "donecoin"
     ],
     "tagline": "Predict BTC, win with DONE",
-    "ogDescription": "Predict BTC in 60 second rounds using DONE on Base. Climb the leaderboard and flex your streak.",
     "ogTitle": "DONE COIN BTC Prediction",
+    "ogDescription": "Predict BTC in 60 second rounds using DONE on Base. Climb the leaderboard and flex your streak.",
     "ogImageUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
     "castShareUrl": "https://warpcast.com/~/compose?text=Try+the+DONE+COIN+BTC+prediction+mini+app+on+Base"
-  },
-  "accountAssociation": {
-    "header": "eyJmaWQiOjQ0MTYyNiwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGZhN0E2MTEzRGFCNjQ0Njk2OTRiNjdiRTU4RjIwN2FCODgwZjdkRDMifQ",
-    "payload": "eyJkb21haW4iOiJkb25lLWNvaW4tbWluaWFwcC52ZXJjZWwuYXBwIn0",
-    "signature": "gJfNQ7CxAytHFmEehecqMBeOmYJ/i13sjY2ePYaX0ttRmX40fDQxpXLi7nR+vDos3KX5Ho9WXn2lEKyOUpuyzBw="
   }
 }
