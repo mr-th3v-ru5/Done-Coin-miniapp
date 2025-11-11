@@ -1,3 +1,4 @@
+/* Core theme variables & background */
 :root {
   --bg: #020617;
   --card: #020617;
@@ -10,8 +11,6 @@
   --shadow: 0 24px 70px rgba(15, 23, 42, 0.9);
 }
 
-/* RESET */
-
 *,
 *::before,
 *::after {
@@ -22,8 +21,6 @@ body {
   margin: 0;
   padding: 0;
 }
-
-/* GLOBAL PAGE LAYOUT */
 
 .bet-body {
   min-height: 100vh;
@@ -144,7 +141,7 @@ body {
   font-size: 11px;
 }
 
-/* HUB TABS (AIRDROP / BET) */
+/* HUB TABS */
 
 .hub-tabs {
   display: flex;
@@ -462,6 +459,59 @@ body {
   box-shadow: none;
 }
 
+/* SWAP BLOCK */
+
+.swap-wrap {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(55, 65, 81, 0.8);
+}
+
+.swap-label-row {
+  margin-bottom: 4px;
+}
+
+.swap-input-row {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swap-input {
+  flex: 1;
+}
+
+/* Blue secondary button */
+.btn-secondary {
+  width: 100%;
+  border-radius: 999px;
+  border: none;
+  padding: 9px 0;
+  font-size: 13px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #f9fafb;
+  cursor: pointer;
+  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.08s ease-out, box-shadow 0.12s ease-out,
+    filter 0.12s ease-out;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.5);
+}
+
 /* STATUS */
 
 .status-line {
@@ -472,49 +522,7 @@ body {
   word-break: break-word;
 }
 
-/* HIGHLIGHT CARD IN HUB BET TAB */
-
-.bet-highlight {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border-radius: 16px;
-  padding: 10px 10px;
-  background: radial-gradient(circle at top left, #1d4ed8 0, #020617 80%);
-  border: 1px solid rgba(59, 130, 246, 0.7);
-  margin-bottom: 10px;
-}
-
-.bet-highlight-main {
-  max-width: 70%;
-}
-
-.bet-highlight-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.bet-highlight-sub {
-  font-size: 11px;
-  color: #d1d5db;
-}
-
-.bet-highlight-side {
-  text-align: right;
-}
-
-.pair-small {
-  font-size: 10px;
-  color: #cbd5f5;
-}
-
-.pair-price {
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
-}
-
-/* TICKER BLOCK (BET PAGE) */
+/* TICKER & ROUND */
 
 .bet-section-ticker {
   display: grid;
@@ -631,6 +639,18 @@ body {
   display: none;
 }
 
+/* TEXT LINK */
+
+.text-link {
+  color: #60a5fa;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.text-link:hover {
+  text-decoration: underline;
+}
+
 /* RESPONSIVE */
 
 @media (max-width: 420px) {
@@ -671,13 +691,4 @@ body {
   100% {
     box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
   }
-}
-.text-link {
-  color: #60a5fa;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.text-link:hover {
-  text-decoration: underline;
 }

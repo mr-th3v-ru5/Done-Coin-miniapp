@@ -5,10 +5,9 @@
   const state = {
     fid: null,
     score: null,
-    wallet: null
+    wallet: null,
   };
 
-  // airdrop contract address (for future on-chain claim hooks)
   const AIRDROP_CONTRACT_ADDRESS =
     "0x1df8DcCAD57939BaB8Ae0f3406Eaa868887E03bb";
 
@@ -46,7 +45,6 @@
     detectContext();
   });
 
-  // ====== TABS ======
   function setupTabs() {
     if (!els.tabAirdrop || !els.tabBet || !els.viewAirdrop || !els.viewBet)
       return;
@@ -66,7 +64,6 @@
     });
   }
 
-  // ====== QUEST STEPS ======
   function setupSteps() {
     if (!els.steps || !els.steps.length) return;
 
@@ -93,7 +90,6 @@
     els.progressLabel.textContent = `${done} / ${total} steps complete`;
   }
 
-  // ====== CONTEXT (FID + WALLET) ======
   function detectContext() {
     try {
       const params = new URLSearchParams(window.location.search || "");
@@ -146,14 +142,12 @@
     return addr.slice(0, 6) + "…" + addr.slice(-4);
   }
 
-  // ====== NEYNAR SCORE (OPTIONAL) ======
   async function fetchNeynarScore(fid) {
     if (!fid || !els.scoreVal) return;
 
     try {
       els.scoreVal.textContent = "…";
 
-      // assumes backend endpoint /api/neynar-score?fid=...
       const res = await fetch(`/api/neynar-score?fid=${encodeURIComponent(fid)}`);
       if (!res.ok) throw new Error("HTTP " + res.status);
 
