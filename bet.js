@@ -1,16 +1,18 @@
-// bet.js — DONE BTC Prediction & ETH->DONE swap on Base (Uniswap v3 + better errors)
+// bet.js — DONE Bet mini app (no on-chain swap)
+// - Connect wallet on Base
+// - Place bet using DoneBtcPrediction contract
+// - Show BTC ticker + round timer
+// - External Uniswap button + copyable DONE CA
 
 (function () {
-  // ====== CONTRACT ADDRESSES (lowercase) ======
-  const DONE_TOKEN_ADDRESS = "0x3da0da9414d02c1e4cc4526a5a24f5eeebfcead4";
-  const BET_CONTRACT_ADDRESS = "0xc107cdb70bc93912aa6765c3a66dd88cee1acdf0";
+  // ====== CONFIG ======
 
-  // Uniswap v3 on Base (SwapRouter02 + QuoterV2)
-  const UNISWAP_V3_ROUTER = "0x2626664c2603336E57B271c5C0b26F421741e481";
-  const UNISWAP_V3_QUOTER = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a";
-  const WETH_ADDRESS = "0x4200000000000000000000000000000000000006"; // WETH on Base
+  const BASE_CHAIN_ID = 8453;
+  const DONE_TOKEN_ADDRESS = "0x3Da0Da9414D02c1E4cc4526a5a24F5eeEbfCEAd4";
+  const BET_CONTRACT_ADDRESS = "0xC107CDB70bC93912Aa6765C3a66Dd88cEE1aCDf0";
 
   // ====== ABIs ======
+
   const ERC20_ABI = [
     "function balanceOf(address) view returns (uint256)",
     "function decimals() view returns (uint8)",
@@ -26,15 +28,8 @@
     "function rounds(uint256) view returns (uint256 epoch,uint64 startTime,uint64 lockTime,uint64 closeTime,int256 lockPrice,int256 closePrice,uint256 totalUp,uint256 totalDown,uint8 result,bool locked,bool closed,bool feeTaken)"
   ];
 
-  const UNISWAP_V3_ROUTER_ABI = [
-    "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256 amountOut)"
-  ];
-
-  const UNISWAP_V3_QUOTER_ABI = [
-    "function quoteExactInputSingle(address tokenIn,address tokenOut,uint24 fee,uint256 amountIn,uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)"
-  ];
-
   // ====== STATE ======
+
   const els = {};
   const state = {
     provider: null,
@@ -42,12 +37,10 @@
     address: null,
     doneDecimals: 18,
     doneBalanceRaw: "0",
-    ethBalanceRaw: null, // BigNumber
     selectedSide: 0,
     selectedMult: 1.2,
     minBetRaw: null,
-    poolBalanceRaw: null,
-    swapFeeTier: 3000 // default guess; auto-adjust if pool ada di fee lain
+    poolBalanceRaw: null
   };
 
   const urlParams = new URLSearchParams(window.location.search || "");
@@ -60,7 +53,8 @@
     timeLeft: 60
   };
 
-  // ====== INIT ======
+  // ====== DOM READY ======
+
   document.addEventListener("DOMContentLoaded", () => {
     // WALLET / HEADER
     els.walletAddr = document.getElementById("wallet-addr-bet");
@@ -88,39 +82,26 @@
     els.btnUp = document.getElementById("btn-up");
     els.btnDown = document.getElementById("btn-down");
 
-    // SWAP elements
-    els.swapAmountEth = document.getElementById("swap-amount-eth");
-    els.swapEstimateDone = document.getElementById("swap-estimate-done");
-    els.swapBuyAmount = document.getElementById("swap-buy-amount");
-    els.btnSwap = document.getElementById("btn-swap");
-    els.swapStatus = document.getElementById("swap-status");
-
-    // swap modal
-    els.swapModal = document.getElementById("swap-modal");
-    els.swapBackdrop = document.getElementById("swap-backdrop");
-    els.swapClose = document.getElementById("swap-close");
-    els.btnOpenSwap = document.getElementById("btn-open-swap");
+    // EXTERNAL SWAP BUTTON + CA COPY
+    els.btnUniswap = document.getElementById("btn-open-swap");   // tombol besar biru di bawah Place bet
+    els.caCopy = document.getElementById("done-ca-copy");        // teks CA yang bisa di klik
 
     if (isMini && els.walletHint) {
       els.walletHint.textContent =
         "Mini app: you use the wallet from your Farcaster account. To change wallet, use Farcaster settings.";
     }
 
-    setupUIHandlers();
+    setupWalletHandlers();
+    setupBetHandlers();
     setupRoundButtons();
-    setupSwapHandlers();
+    setupExternalSwapAndCA();
     startPriceTicker();
-    updateSwapButton(); // awal: disabled sampai wallet connect
   });
 
-  // ====== HELPERS ======
+  // ====== SMALL HELPERS ======
 
   function setStatus(msg) {
     if (els.betStatus) els.betStatus.textContent = msg || "";
-  }
-
-  function setSwapStatus(msg) {
-    if (els.swapStatus) els.swapStatus.textContent = msg || "";
   }
 
   function shortAddr(addr) {
@@ -134,7 +115,7 @@
 
     const net = await state.provider.getNetwork();
     const chainId = Number(net.chainId || 0);
-    if (chainId === 8453) return; // Base mainnet
+    if (chainId === BASE_CHAIN_ID) return;
 
     try {
       await provider.request({
@@ -144,7 +125,7 @@
     } catch (e) {
       console.warn("wallet_switchEthereumChain failed:", e);
       setStatus(
-        "Please switch your wallet to Base (chainId 8453) before betting or swapping."
+        "Please switch your wallet to Base (chainId 8453) before betting."
       );
       throw e;
     }
@@ -156,7 +137,7 @@
       const net = await state.provider.getNetwork();
       const chainId = Number(net.chainId || 0);
       if (els.networkName) {
-        if (chainId === 8453) {
+        if (chainId === BASE_CHAIN_ID) {
           els.networkName.textContent = "Base";
           els.networkPill && els.networkPill.classList.add("ok");
         } else {
@@ -169,20 +150,7 @@
     }
   }
 
-  async function loadEthBalance() {
-    if (!state.provider || !state.address) return;
-    try {
-      const bal = await state.provider.getBalance(state.address);
-      state.ethBalanceRaw = bal;
-    } catch (e) {
-      console.warn("loadEthBalance error:", e);
-      state.ethBalanceRaw = null;
-    } finally {
-      updateSwapButton();
-    }
-  }
-
-  async function loadDoneTokenInfo() {
+  async function refreshDoneBalance() {
     if (!state.signer || !state.address) return;
     try {
       const erc20 = new ethers.Contract(
@@ -205,7 +173,7 @@
         els.doneBalance.textContent = human;
       }
     } catch (e) {
-      console.warn("loadDoneTokenInfo error:", e);
+      console.warn("refreshDoneBalance error:", e);
     }
   }
 
@@ -231,7 +199,8 @@
           state.doneDecimals || 18
         );
         if (els.minBetHint) {
-          els.minBetHint.textContent = `Minimum bet from contract: ${humanMin} DONE`;
+          els.minBetHint.textContent =
+            `Minimum bet from contract: ${humanMin} DONE`;
         }
       } catch (e) {
         console.warn("minBetAmount error", e);
@@ -257,9 +226,9 @@
     }
   }
 
-  // ====== UI HANDLERS ======
+  // ====== WALLET & BET ======
 
-  function setupUIHandlers() {
+  function setupWalletHandlers() {
     if (els.btnConnect) {
       els.btnConnect.addEventListener("click", async () => {
         if (!state.address) {
@@ -267,7 +236,6 @@
           return;
         }
 
-        // disconnect
         if (isMini) {
           setStatus(
             "Wallet is provided by the mini app. To change it, use Farcaster settings."
@@ -277,18 +245,17 @@
           state.signer = null;
           state.address = null;
           state.doneBalanceRaw = "0";
-          state.ethBalanceRaw = null;
           if (els.walletAddr) els.walletAddr.textContent = "not connected";
           if (els.doneBalance) els.doneBalance.textContent = "0.0";
           els.btnConnect.textContent = "🔗 Connect";
           els.btnConnect.classList.remove("connected");
           setStatus("Wallet disconnected. Connect again before betting.");
-          setSwapStatus("");
-          updateSwapButton();
         }
       });
     }
+  }
 
+  function setupBetHandlers() {
     if (els.modes && els.modes.length) {
       els.modes.forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -332,90 +299,6 @@
     }
   }
 
-  function setupRoundButtons() {
-    if (!els.btnUp || !els.btnDown) return;
-    els.btnUp.addEventListener("click", () => {
-      state.selectedSide = 1;
-      els.btnUp.classList.add("active");
-      els.btnDown.classList.remove("active");
-    });
-    els.btnDown.addEventListener("click", () => {
-      state.selectedSide = 0;
-      els.btnDown.classList.add("active");
-      els.btnUp.classList.remove("active");
-    });
-  }
-
-  function setupSwapHandlers() {
-    if (els.swapAmountEth) {
-      els.swapAmountEth.addEventListener("input", () => {
-        handleSwapEstimate();
-        updateSwapButton();
-      });
-    }
-    if (els.btnSwap) {
-      els.btnSwap.addEventListener("click", handleSwap);
-    }
-
-    if (els.btnOpenSwap && els.swapModal) {
-      els.btnOpenSwap.addEventListener("click", () => {
-        els.swapModal.classList.add("open");
-        setSwapStatus("");
-        updateSwapButton();
-        handleSwapEstimate();
-      });
-    }
-
-    if (els.swapClose) {
-      els.swapClose.addEventListener("click", closeSwapModal);
-    }
-    if (els.swapBackdrop) {
-      els.swapBackdrop.addEventListener("click", closeSwapModal);
-    }
-  }
-
-  function closeSwapModal() {
-    if (els.swapModal) {
-      els.swapModal.classList.remove("open");
-    }
-  }
-
-  function updateSwapButton() {
-    if (!els.btnSwap) return;
-
-    // not connected
-    if (!state.signer || !state.address) {
-      els.btnSwap.disabled = true;
-      els.btnSwap.textContent = "Connect wallet to swap";
-      return;
-    }
-
-    const raw = (els.swapAmountEth && els.swapAmountEth.value) || "";
-    const val = parseFloat(raw);
-
-    if (!isFinite(val) || val <= 0) {
-      els.btnSwap.disabled = true;
-      els.btnSwap.textContent = "Enter amount";
-      return;
-    }
-
-    if (state.ethBalanceRaw) {
-      const balEth = parseFloat(
-        ethers.utils.formatEther(state.ethBalanceRaw)
-      );
-      if (val > balEth + 1e-9) {
-        els.btnSwap.disabled = true;
-        els.btnSwap.textContent = "Not enough ETH";
-        return;
-      }
-    }
-
-    els.btnSwap.disabled = false;
-    els.btnSwap.textContent = "🔄 Swap ETH → DONE";
-  }
-
-  // ====== CONNECT WALLET ======
-
   async function connectWallet() {
     if (typeof window.ethereum === "undefined") {
       setStatus("No web3 wallet found (window.ethereum is missing).");
@@ -439,13 +322,9 @@
 
       await ensureBaseNetwork(provider.provider);
       await refreshNetworkInfo();
-      await loadEthBalance();
-      await loadDoneTokenInfo();
+      await refreshDoneBalance();
       await loadBetConfig();
-      await handleSwapEstimate();
-
-      setStatus("Wallet connected. You can now bet and swap.");
-      updateSwapButton();
+      setStatus("Wallet connected. You can now bet.");
     } catch (e) {
       console.error(e);
       setStatus(
@@ -454,12 +333,10 @@
     }
   }
 
-  // ====== BET PREVIEW & FLOW ======
-
   function updatePayoutPreview() {
     if (!els.betAmount) return;
     const rawAmount = els.betAmount.value || "";
-    const num = parseFloat(rawAmount);
+    const num = parseFloat(rawAmount.replace(",", "."));
     if (!isFinite(num) || num <= 0) {
       if (els.rewardPreview) els.rewardPreview.textContent = "";
       if (els.payoutPreview) els.payoutPreview.textContent = "";
@@ -483,7 +360,7 @@
     }
 
     const rawAmount = (els.betAmount && els.betAmount.value) || "";
-    const num = parseFloat(rawAmount);
+    const num = parseFloat(rawAmount.replace(",", "."));
     if (!isFinite(num) || num <= 0) {
       setStatus("Enter a valid $DONE amount.");
       return;
@@ -491,7 +368,7 @@
 
     try {
       const amount = ethers.utils.parseUnits(
-        rawAmount,
+        rawAmount.replace(",", "."),
         state.doneDecimals || 18
       );
 
@@ -573,7 +450,7 @@
         setStatus(
           "✅ Bet confirmed. Rewards will be claimable after this round is closed."
         );
-        await loadDoneTokenInfo();
+        await refreshDoneBalance();
       } else {
         setStatus("Bet transaction failed or reverted.");
       }
@@ -595,191 +472,61 @@
     }
   }
 
-  // ====== UNISWAP v3 — helper cari fee tier yang memiliki pool ======
+  // ====== EXTERNAL SWAP BUTTON + COPY CA ======
 
-  async function quoteForAnyFee(amountIn) {
-    const provider = state.provider;
-    if (!provider) throw new Error("No provider");
-
-    const quoter = new ethers.Contract(
-      UNISWAP_V3_QUOTER,
-      UNISWAP_V3_QUOTER_ABI,
-      provider
-    );
-
-    // Coba beberapa fee tier umum. Urutannya: last used -> 0.3% -> 0.05% -> 1%
-    const candidates = [state.swapFeeTier, 3000, 500, 10000].filter(
-      (v, i, arr) => v && arr.indexOf(v) === i
-    );
-
-    for (const fee of candidates) {
-      try {
-        const out = await quoter.callStatic.quoteExactInputSingle(
-          WETH_ADDRESS,
-          DONE_TOKEN_ADDRESS,
-          fee,
-          amountIn,
-          0
-        );
-        // kalau tidak revert, berarti pool ada di fee ini
-        return { amountOut: out, fee };
-      } catch (e) {
-        // continue; coba fee lain
-      }
+  function setupExternalSwapAndCA() {
+    // tombol swap eksternal
+    if (els.btnUniswap) {
+      els.btnUniswap.textContent = "Swap $DONE on Uniswap";
+      els.btnUniswap.addEventListener("click", () => {
+        const url =
+          "https://app.uniswap.org/swap?chain=base&outputCurrency=" +
+          DONE_TOKEN_ADDRESS;
+        // di browser biasa buka tab baru, di mini app biasanya tetap in-app
+        window.open(url, "_blank");
+      });
     }
 
-    throw new Error(
-      "No Uniswap v3 pool found for WETH/DONE on common fee tiers (0.05%, 0.3%, 1%)."
-    );
-  }
+    // tampilan & copy CA
+    if (els.caCopy) {
+      els.caCopy.textContent = DONE_TOKEN_ADDRESS;
+      els.caCopy.style.cursor = "pointer";
+      els.caCopy.title = "Click to copy $DONE contract address";
 
-  // ====== UNISWAP v3 — ESTIMATE & SWAP ======
-
-  async function handleSwapEstimate() {
-    if (!els.swapAmountEth || !els.swapEstimateDone) return;
-
-    const raw = els.swapAmountEth.value || "";
-    const val = parseFloat(raw);
-
-    if (!isFinite(val) || val <= 0) {
-      els.swapEstimateDone.textContent = "—";
-      if (els.swapBuyAmount) els.swapBuyAmount.textContent = "0";
-      return;
-    }
-
-    if (!state.provider) {
-      els.swapEstimateDone.textContent = "connect wallet";
-      if (els.swapBuyAmount) els.swapBuyAmount.textContent = "0";
-      return;
-    }
-
-    try {
-      const amountIn = ethers.utils.parseEther(raw);
-      const { amountOut, fee } = await quoteForAnyFee(amountIn);
-      state.swapFeeTier = fee; // simpan fee tier yang benar
-
-      const human = ethers.utils.formatUnits(
-        amountOut,
-        state.doneDecimals || 18
-      );
-
-      els.swapEstimateDone.textContent = human;
-      if (els.swapBuyAmount) els.swapBuyAmount.textContent = human;
-      setSwapStatus(`Route found on Uniswap v3 pool (fee ${fee / 10000}% ).`);
-    } catch (e) {
-      console.warn("swap estimate error", e);
-      els.swapEstimateDone.textContent = "—";
-      if (els.swapBuyAmount) els.swapBuyAmount.textContent = "0";
-      setSwapStatus(
-        "Cannot fetch DONE price. Maybe the DONE/ETH v3 pool has no liquidity yet."
-      );
+      els.caCopy.addEventListener("click", async () => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(DONE_TOKEN_ADDRESS);
+          }
+          const original = DONE_TOKEN_ADDRESS;
+          els.caCopy.textContent = "Copied!";
+          els.caCopy.classList.add("copied");
+          setTimeout(() => {
+            els.caCopy.textContent = original;
+            els.caCopy.classList.remove("copied");
+          }, 1000);
+        } catch (e) {
+          // fallback
+          alert("DONE token CA:\n" + DONE_TOKEN_ADDRESS);
+        }
+      });
     }
   }
 
-  async function handleSwap() {
-    if (!state.signer || !state.address) {
-      setSwapStatus("Connect your wallet first.");
-      return;
-    }
-    if (!els.swapAmountEth) return;
+  // ====== ROUND CONTROLS ======
 
-    const raw = els.swapAmountEth.value || "";
-    const val = parseFloat(raw);
-    if (!isFinite(val) || val <= 0) {
-      setSwapStatus("Enter a valid ETH amount.");
-      return;
-    }
-
-    // cek saldo ETH terbaru
-    await loadEthBalance();
-    if (state.ethBalanceRaw) {
-      const balEth = parseFloat(
-        ethers.utils.formatEther(state.ethBalanceRaw)
-      );
-      if (val > balEth + 1e-9) {
-        setSwapStatus("Not enough ETH in wallet for this swap.");
-        updateSwapButton();
-        return;
-      }
-    }
-
-    try {
-      await ensureBaseNetwork();
-
-      const amountIn = ethers.utils.parseEther(raw);
-
-      // hitung expected out & minOut (slippage 3%) dengan helper multi-fee
-      const { amountOut: quotedOut, fee } = await quoteForAnyFee(amountIn);
-      state.swapFeeTier = fee;
-
-      const minOut = quotedOut.mul(97).div(100); // 3% slippage
-      const humanOut = ethers.utils.formatUnits(
-        quotedOut,
-        state.doneDecimals || 18
-      );
-
-      setSwapStatus(
-        `Preparing swap ${raw} ETH → ~${humanOut} DONE (fee tier ${fee / 10000}% ).\nConfirm this swap in your wallet…`
-      );
-
-      const router = new ethers.Contract(
-        UNISWAP_V3_ROUTER,
-        UNISWAP_V3_ROUTER_ABI,
-        state.signer
-      );
-
-      const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
-
-      const params = {
-        tokenIn: WETH_ADDRESS,
-        tokenOut: DONE_TOKEN_ADDRESS,
-        fee,
-        recipient: state.address,
-        deadline,
-        amountIn,
-        amountOutMinimum: minOut,
-        sqrtPriceLimitX96: 0
-      };
-
-      // Akan memunculkan popup konfirmasi di wallet (Metamask, dsb)
-      const tx = await router.exactInputSingle(params, { value: amountIn });
-
-      setSwapStatus(
-        "Swap tx sent: " + tx.hash + " (waiting for confirmation)…"
-      );
-
-      const receipt = await tx.wait();
-      if (receipt.status === 1) {
-        setSwapStatus(
-          "✅ Swap completed. DONE and ETH balances will refresh in a moment."
-        );
-        await loadEthBalance();
-        await loadDoneTokenInfo();
-        await handleSwapEstimate();
-        updateSwapButton();
-      } else {
-        setSwapStatus("Swap failed or reverted.");
-      }
-    } catch (e) {
-      console.error(e);
-      let msg =
-        e?.reason ||
-        (e?.data && e.data.message) ||
-        (e?.error && e.error.message) ||
-        e?.message ||
-        "unknown error";
-
-      if (
-        typeof msg === "string" &&
-        msg.includes("No Uniswap v3 pool found")
-      ) {
-        setSwapStatus(
-          "Swap failed: no Uniswap v3 pool with liquidity for DONE/ETH. Create liquidity first, then try again."
-        );
-      } else {
-        setSwapStatus("Swap failed: " + msg);
-      }
-    }
+  function setupRoundButtons() {
+    if (!els.btnUp || !els.btnDown) return;
+    els.btnUp.addEventListener("click", () => {
+      state.selectedSide = 1;
+      els.btnUp.classList.add("active");
+      els.btnDown.classList.remove("active");
+    });
+    els.btnDown.addEventListener("click", () => {
+      state.selectedSide = 0;
+      els.btnDown.classList.add("active");
+      els.btnUp.classList.remove("active");
+    });
   }
 
   // ====== BTC TICKER & ROUND TIMER ======
