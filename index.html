@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DONE Hub — Mini App</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <!-- HEADER -->
+      <div class="card-header">
+        <div class="brand">
+          <div class="logo">D</div>
+          <div class="title-block">
+            <div class="title">DONE Hub</div>
+            <div class="subtitle">$DONE • Airdrop &amp; Bet on Base</div>
+          </div>
+        </div>
+        <div id="score-pill" class="pill">
+          Neynar score: <span id="score-val">—</span>
+        </div>
+      </div>
+
+      <!-- TABS -->
+      <div class="tabs">
+        <button id="tab-airdrop" class="tab active">Airdrop Quest</button>
+        <button id="tab-bet" class="tab">Bet &amp; Earn</button>
+      </div>
+
+      <!-- VIEW: AIRDROP -->
+      <div id="view-airdrop">
+        <div class="section">
+          <div class="section-title">Farcaster</div>
+          <div class="row">
+            <div class="row-label">User</div>
+            <div id="fc-user" class="addr">loading…</div>
+          </div>
+          <div class="row" style="margin-top:4px;">
+            <div class="row-label">Wallet</div>
+            <div id="wallet-addr" class="addr">connecting…</div>
+          </div>
+          <div id="fc-hint" class="hint">
+            Membuka dari Farcaster Mini App. Kami akan otomatis mendeteksi FID dan Neynar score kamu.
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Quest steps</div>
+          <div class="steps">
+            <div class="step">
+              <div class="step-index">1</div>
+              <div>
+                <strong>Follow DONE creator</strong><br />
+                Ikuti akun Farcaster / X resmi proyek DONE.
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-index">2</div>
+              <div>
+                <strong>Cast tentang DONE</strong><br />
+                Tulis satu cast tentang $DONE dan mention tag komunitasmu.
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-index">3</div>
+              <div>
+                <strong>Join channel / group</strong><br />
+                Gabung ke ruang diskusi yang disediakan tim DONE.
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-index">4</div>
+              <div>
+                <strong>Hold minimal 1 DONE</strong><br />
+                Simpan minimal 1 token DONE di wallet Base yang sama.
+              </div>
+            </div>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-label">
+            <span id="progressLabel">0 / 4 steps complete</span>
+            <span id="progressHint">tap langkah jika sudah selesai</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Claim</div>
+          <button id="btn-claim" class="btn btn-primary" disabled>
+            🎁 Claim 1,000 DONE
+          </button>
+          <div id="claim-status" class="status-line">
+            Menunggu wallet &amp; Neynar score terverifikasi…
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: BET & EARN -->
+      <div id="view-bet" class="view-hidden">
+        <div class="section">
+          <div class="section-title">Bet &amp; Earn $DONE</div>
+          <div class="hint">
+            Taruhan on-chain di jaringan Base. Cocok buat yang mau farming $DONE
+            dengan resiko lebih tinggi dibanding airdrop biasa.
+          </div>
+
+          <div class="bet-rows">
+            <div class="bet-line">
+              <div>
+                <div class="bet-label">Mode Aman</div>
+                <div class="bet-desc">Taruhan kecil, resiko rendah.</div>
+              </div>
+              <div class="bet-mult">~1.2x</div>
+            </div>
+            <div class="bet-line">
+              <div>
+                <div class="bet-label">Mode Normal</div>
+                <div class="bet-desc">Seimbang antara resiko &amp; reward.</div>
+              </div>
+              <div class="bet-mult">~1.5x</div>
+            </div>
+            <div class="bet-line">
+              <div>
+                <div class="bet-label">Mode Degen</div>
+                <div class="bet-desc">High risk, high reward.</div>
+              </div>
+              <div class="bet-mult">2x+</div>
+            </div>
+          </div>
+
+          <button id="btn-open-bet" class="btn btn-secondary">
+            🎰 Buka halaman Bet
+          </button>
+          <div class="status-line">
+            Taruhan akan terbuka di halaman khusus (dApp). Pastikan cukup saldo
+            $DONE / ETH gas di wallet Base kamu.
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="mini-footer">
+        DONE Hub • Airdrop &amp; Bet • Base • anti-bot Neynar ≥ 0.35
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="./mini-app.js"></script>
+</body>
+</html>
