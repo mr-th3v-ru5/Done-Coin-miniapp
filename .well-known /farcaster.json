@@ -2,20 +2,20 @@
   "frame": {
     "name": "DONE COIN",
     "version": "1",
-    "iconUrl": "https://done-coin-miniapp.vercel.app/icon.png",
+    "iconUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
     "homeUrl": "https://done-coin-miniapp.vercel.app",
-    "imageUrl": "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ",
+    "imageUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
     "buttonTitle": "Play DONE COIN",
-    "splashImageUrl": "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ",
+    "splashImageUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
     "splashBackgroundColor": "#050816",
     "webhookUrl": "https://done-coin-miniapp.vercel.app/api/webhook",
     "subtitle": "Predict BTC, earn $DONE",
     "description": "DONE COIN is a mini app for simple onchain BTC predictions on Base. Place 60-second bets using $DONE, climb the leaderboard, and share wins with your Farcaster friends.",
     "primaryCategory": "games",
     "screenshotUrls": [
-      "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ"
+      "https://done-coin-miniapp.vercel.app/logo.jpg"
     ],
-    "heroImageUrl": "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ",
+    "heroImageUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
     "tags": [
       "btc",
       "prediction",
@@ -26,7 +26,7 @@
     "tagline": "Predict BTC, win with DONE",
     "ogDescription": "Predict BTC in 60 second rounds using DONE on Base. Climb the leaderboard and flex your streak.",
     "ogTitle": "DONE COIN BTC Prediction",
-    "ogImageUrl": "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ",
+    "ogImageUrl": "https://done-coin-miniapp.vercel.app/logo.jpg",
     "castShareUrl": "https://warpcast.com/~/compose?text=Try+the+DONE+COIN+BTC+prediction+mini+app+on+Base"
   },
   "accountAssociation": {
