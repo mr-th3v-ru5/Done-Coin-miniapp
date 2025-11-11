@@ -39,6 +39,7 @@
     provider: null,
     signer: null,
     address: null,
+    isBetLocked: false,
     doneDecimals: 18,
     doneBalanceRaw: "0",
     selectedSide: null, // 0 = DOWN, 1 = UP, null = not selected
@@ -381,6 +382,11 @@
       return;
     }
 
+    if (state.isBetLocked) {
+      setStatus("You already have an active bet in this round. Wait until the current round ends.");
+      return;
+    }
+
     const rawAmount = (els.betAmount && els.betAmount.value) || "";
     const num = parseFloat(rawAmount.replace(",", "."));
     if (!isFinite(num) || num <= 0) {
@@ -532,6 +538,7 @@
         setStatus(
           "✅ Bet confirmed on-chain. Visual result will show at end of this countdown round."
         );
+        state.isBetLocked = true;
         await refreshDoneBalance();
         await refreshPoolInfo();
         if (els.btnPlaceBet) {
@@ -665,6 +672,8 @@
     els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
     els.betOutcome.classList.add(cls);
     state.lastBetVisual.resolved = true;
+    // allow a new bet in the next round
+    state.isBetLocked = false;
   }
 
   // ====== BTC TICKER, CHART & ROUND TIMER ======
