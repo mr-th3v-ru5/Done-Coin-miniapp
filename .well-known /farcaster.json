@@ -1,31 +1,37 @@
 {
+  "frame": {
+    "name": "DONE COIN",
+    "version": "1",
+    "iconUrl": "https://done-coin-miniapp.vercel.app/icon.png",
+    "homeUrl": "https://done-coin-miniapp.vercel.app",
+    "imageUrl": "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ",
+    "buttonTitle": "Play DONE COIN",
+    "splashImageUrl": "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ",
+    "splashBackgroundColor": "#050816",
+    "webhookUrl": "https://done-coin-miniapp.vercel.app/api/webhook",
+    "subtitle": "Predict BTC, earn $DONE",
+    "description": "DONE COIN is a mini app for simple onchain BTC predictions on Base. Place 60-second bets using $DONE, climb the leaderboard, and share wins with your Farcaster friends.",
+    "primaryCategory": "games",
+    "screenshotUrls": [
+      "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ"
+    ],
+    "heroImageUrl": "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ",
+    "tags": [
+      "btc",
+      "prediction",
+      "defi",
+      "base",
+      "donecoin"
+    ],
+    "tagline": "Predict BTC, win with DONE",
+    "ogDescription": "Predict BTC in 60 second rounds using DONE on Base. Climb the leaderboard and flex your streak.",
+    "ogTitle": "DONE COIN BTC Prediction",
+    "ogImageUrl": "https://raw.githubusercontent.com/mr-th3v-ru5/Done-Coin-miniapp/dbdaaa6dee7f46807ed5e8f571941089e1aab3af/logo.jpg?token=GHSAT0AAAAAADONSJGPHTZTCEENFPCSCZVY2ITLVCQ",
+    "castShareUrl": "https://warpcast.com/~/compose?text=Try+the+DONE+COIN+BTC+prediction+mini+app+on+Base"
+  },
   "accountAssociation": {
     "header": "eyJmaWQiOjQ0MTYyNiwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGZhN0E2MTEzRGFCNjQ0Njk2OTRiNjdiRTU4RjIwN2FCODgwZjdkRDMifQ",
-    "payload": "eyJkb21haW4iOiJkb25lLWNvaW4udmVyY2VsLmFwcCJ9",
-    "signature": "QkAb3hSn+syb8O63mQ+F+sLjVBCbrN0ZzRWuLh/1WEApk7QZhsWoF3aTttCroXoOp4fdvkAEpLSP6H0m0Sw5Ixs="
-  },
-  "miniapp": {
-    "version": "1",
-    "name": "DONE quest ($DONE)",
-    "description": "Quest and airdrop helper for DONE COIN on Base. Follow Dani12po, like, recast and quote the airdrop cast to unlock claim. Always DYOR.",
-    "homeUrl": "https://done-coin.vercel.app/#airdrop",
-    "iconUrl": "https://imagedelivery.net/FhZYbuj1i750yqSmEMsC2Q/76367a92-24a2-43fd-0d78-19e399cfb801/public?exp=1762754400&sig=33fae3e4cc7c7b847263faf95e8bff58cb6346ab2ddd2b09cc565475375d1fcf",
-    "splashImageUrl": "https://imagedelivery.net/FhZYbuj1i750yqSmEMsC2Q/76367a92-24a2-43fd-0d78-19e399cfb801/public?exp=1762754400&sig=33fae3e4cc7c7b847263faf95e8bff58cb6346ab2ddd2b09cc565475375d1fcf",
-    "splashBackgroundColor": "#020617",
-    "subtitle": "Finish quest then claim DONE",
-    "heroImageUrl": "https://imagedelivery.net/FhZYbuj1i750yqSmEMsC2Q/76367a92-24a2-43fd-0d78-19e399cfb801/public?exp=1762754400&sig=33fae3e4cc7c7b847263faf95e8bff58cb6346ab2ddd2b09cc565475375d1fcf",
-    "primaryCategory": "finance",
-    "tags": [
-      "sosial",
-      "airdrop",
-      "done",
-      "quest",
-      "community"
-    ],
-    "tagline": "Follow, quest, then claim DONE",
-    "ogTitle": "DONE Quest Claim DONE",
-    "ogDescription": "Quest DONE COIN on Base. Follow Dani12po, like, recast and quote the cast to claim.",
-    "ogImageUrl": "https://imagedelivery.net/FhZYbuj1i750yqSmEMsC2Q/76367a92-24a2-43fd-0d78-19e399cfb801/public?exp=1762754400&sig=33fae3e4cc7c7b847263faf95e8bff58cb6346ab2ddd2b09cc565475375d1fcf",
-    "castShareUrl": "https://warpcast.com/~/compose?text=Ikut%20DONE%20Quest%20dan%20claim%201.000%20DONE%20di%20Base%20🧠&embeds[]=https://done-coin.vercel.app"
+    "payload": "eyJkb21haW4iOiJkb25lLWNvaW4tbWluaWFwcC52ZXJjZWwuYXBwIn0",
+    "signature": "gJfNQ7CxAytHFmEehecqMBeOmYJ/i13sjY2ePYaX0ttRmX40fDQxpXLi7nR+vDos3KX5Ho9WXn2lEKyOUpuyzBw="
   }
 }
