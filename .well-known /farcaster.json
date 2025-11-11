@@ -1,0 +1,31 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjQ0MTYyNiwidHlwZSI6ImF1dGgiLCJrZXkiOiIweGZhN0E2MTEzRGFCNjQ0Njk2OTRiNjdiRTU4RjIwN2FCODgwZjdkRDMifQ",
+    "payload": "eyJkb21haW4iOiJkb25lLWNvaW4udmVyY2VsLmFwcCJ9",
+    "signature": "QkAb3hSn+syb8O63mQ+F+sLjVBCbrN0ZzRWuLh/1WEApk7QZhsWoF3aTttCroXoOp4fdvkAEpLSP6H0m0Sw5Ixs="
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "DONE quest ($DONE)",
+    "description": "Quest and airdrop helper for DONE COIN on Base. Follow Dani12po, like, recast and quote the airdrop cast to unlock claim. Always DYOR.",
+    "homeUrl": "https://done-coin.vercel.app/#airdrop",
+    "iconUrl": "https://imagedelivery.net/FhZYbuj1i750yqSmEMsC2Q/76367a92-24a2-43fd-0d78-19e399cfb801/public?exp=1762754400&sig=33fae3e4cc7c7b847263faf95e8bff58cb6346ab2ddd2b09cc565475375d1fcf",
+    "splashImageUrl": "https://imagedelivery.net/FhZYbuj1i750yqSmEMsC2Q/76367a92-24a2-43fd-0d78-19e399cfb801/public?exp=1762754400&sig=33fae3e4cc7c7b847263faf95e8bff58cb6346ab2ddd2b09cc565475375d1fcf",
+    "splashBackgroundColor": "#020617",
+    "subtitle": "Finish quest then claim DONE",
+    "heroImageUrl": "https://imagedelivery.net/FhZYbuj1i750yqSmEMsC2Q/76367a92-24a2-43fd-0d78-19e399cfb801/public?exp=1762754400&sig=33fae3e4cc7c7b847263faf95e8bff58cb6346ab2ddd2b09cc565475375d1fcf",
+    "primaryCategory": "finance",
+    "tags": [
+      "sosial",
+      "airdrop",
+      "done",
+      "quest",
+      "community"
+    ],
+    "tagline": "Follow, quest, then claim DONE",
+    "ogTitle": "DONE Quest Claim DONE",
+    "ogDescription": "Quest DONE COIN on Base. Follow Dani12po, like, recast and quote the cast to claim.",
+    "ogImageUrl": "https://imagedelivery.net/FhZYbuj1i750yqSmEMsC2Q/76367a92-24a2-43fd-0d78-19e399cfb801/public?exp=1762754400&sig=33fae3e4cc7c7b847263faf95e8bff58cb6346ab2ddd2b09cc565475375d1fcf",
+    "castShareUrl": "https://warpcast.com/~/compose?text=Ikut%20DONE%20Quest%20dan%20claim%201.000%20DONE%20di%20Base%20🧠&embeds[]=https://done-coin.vercel.app"
+  }
+}
