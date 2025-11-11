@@ -1,4 +1,4 @@
-// bet.js — DONE BTC Prediction & ETH->DONE swap on Base (Uniswap v3)
+// bet.js — DONE BTC Prediction & ETH->DONE swap on Base (Uniswap v3 + better errors)
 
 (function () {
   // ====== CONTRACT ADDRESSES (lowercase) ======
@@ -9,7 +9,6 @@
   const UNISWAP_V3_ROUTER = "0x2626664c2603336E57B271c5C0b26F421741e481";
   const UNISWAP_V3_QUOTER = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a";
   const WETH_ADDRESS = "0x4200000000000000000000000000000000000006"; // WETH on Base
-  const V3_FEE_TIER = 3000; // 0.3% pool. Ubah kalau pool DONE/ETH pakai fee lain.
 
   // ====== ABIs ======
   const ERC20_ABI = [
@@ -47,7 +46,8 @@
     selectedSide: 0,
     selectedMult: 1.2,
     minBetRaw: null,
-    poolBalanceRaw: null
+    poolBalanceRaw: null,
+    swapFeeTier: 3000 // default guess; auto-adjust if pool ada di fee lain
   };
 
   const urlParams = new URLSearchParams(window.location.search || "");
@@ -595,6 +595,44 @@
     }
   }
 
+  // ====== UNISWAP v3 — helper cari fee tier yang memiliki pool ======
+
+  async function quoteForAnyFee(amountIn) {
+    const provider = state.provider;
+    if (!provider) throw new Error("No provider");
+
+    const quoter = new ethers.Contract(
+      UNISWAP_V3_QUOTER,
+      UNISWAP_V3_QUOTER_ABI,
+      provider
+    );
+
+    // Coba beberapa fee tier umum. Urutannya: last used -> 0.3% -> 0.05% -> 1%
+    const candidates = [state.swapFeeTier, 3000, 500, 10000].filter(
+      (v, i, arr) => v && arr.indexOf(v) === i
+    );
+
+    for (const fee of candidates) {
+      try {
+        const out = await quoter.callStatic.quoteExactInputSingle(
+          WETH_ADDRESS,
+          DONE_TOKEN_ADDRESS,
+          fee,
+          amountIn,
+          0
+        );
+        // kalau tidak revert, berarti pool ada di fee ini
+        return { amountOut: out, fee };
+      } catch (e) {
+        // continue; coba fee lain
+      }
+    }
+
+    throw new Error(
+      "No Uniswap v3 pool found for WETH/DONE on common fee tiers (0.05%, 0.3%, 1%)."
+    );
+  }
+
   // ====== UNISWAP v3 — ESTIMATE & SWAP ======
 
   async function handleSwapEstimate() {
@@ -616,22 +654,9 @@
     }
 
     try {
-      const quoter = new ethers.Contract(
-        UNISWAP_V3_QUOTER,
-        UNISWAP_V3_QUOTER_ABI,
-        state.provider
-      );
-
       const amountIn = ethers.utils.parseEther(raw);
-
-      // harga DONE di pool v3 (WETH -> DONE)
-      const amountOut = await quoter.callStatic.quoteExactInputSingle(
-        WETH_ADDRESS,
-        DONE_TOKEN_ADDRESS,
-        V3_FEE_TIER,
-        amountIn,
-        0 // sqrtPriceLimitX96 = 0 (no limit)
-      );
+      const { amountOut, fee } = await quoteForAnyFee(amountIn);
+      state.swapFeeTier = fee; // simpan fee tier yang benar
 
       const human = ethers.utils.formatUnits(
         amountOut,
@@ -640,10 +665,14 @@
 
       els.swapEstimateDone.textContent = human;
       if (els.swapBuyAmount) els.swapBuyAmount.textContent = human;
+      setSwapStatus(`Route found on Uniswap v3 pool (fee ${fee / 10000}% ).`);
     } catch (e) {
       console.warn("swap estimate error", e);
       els.swapEstimateDone.textContent = "—";
       if (els.swapBuyAmount) els.swapBuyAmount.textContent = "0";
+      setSwapStatus(
+        "Cannot fetch DONE price. Maybe the DONE/ETH v3 pool has no liquidity yet."
+      );
     }
   }
 
@@ -679,20 +708,9 @@
 
       const amountIn = ethers.utils.parseEther(raw);
 
-      // hitung expected out & minOut (slippage 3%) pakai Quoter v3
-      const quoter = new ethers.Contract(
-        UNISWAP_V3_QUOTER,
-        UNISWAP_V3_QUOTER_ABI,
-        state.provider
-      );
-
-      const quotedOut = await quoter.callStatic.quoteExactInputSingle(
-        WETH_ADDRESS,
-        DONE_TOKEN_ADDRESS,
-        V3_FEE_TIER,
-        amountIn,
-        0
-      );
+      // hitung expected out & minOut (slippage 3%) dengan helper multi-fee
+      const { amountOut: quotedOut, fee } = await quoteForAnyFee(amountIn);
+      state.swapFeeTier = fee;
 
       const minOut = quotedOut.mul(97).div(100); // 3% slippage
       const humanOut = ethers.utils.formatUnits(
@@ -701,7 +719,7 @@
       );
 
       setSwapStatus(
-        `Preparing swap ${raw} ETH → ~${humanOut} DONE.\nConfirm this swap in your wallet…`
+        `Preparing swap ${raw} ETH → ~${humanOut} DONE (fee tier ${fee / 10000}% ).\nConfirm this swap in your wallet…`
       );
 
       const router = new ethers.Contract(
@@ -715,7 +733,7 @@
       const params = {
         tokenIn: WETH_ADDRESS,
         tokenOut: DONE_TOKEN_ADDRESS,
-        fee: V3_FEE_TIER,
+        fee,
         recipient: state.address,
         deadline,
         amountIn,
@@ -751,7 +769,16 @@
         e?.message ||
         "unknown error";
 
-      setSwapStatus("Swap failed: " + msg);
+      if (
+        typeof msg === "string" &&
+        msg.includes("No Uniswap v3 pool found")
+      ) {
+        setSwapStatus(
+          "Swap failed: no Uniswap v3 pool with liquidity for DONE/ETH. Create liquidity first, then try again."
+        );
+      } else {
+        setSwapStatus("Swap failed: " + msg);
+      }
     }
   }
 
