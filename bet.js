@@ -6,7 +6,7 @@
 // - Simple BTC/USDT line chart
 // - External "Swap $DONE on Uniswap" button + copyable DONE CA
 // - Auto refresh DONE pool every 30s by reading DONE balance of pool contract
-// - Minimum bet fixed to 100 DONE (from pool contract config)
+// - Minimum bet fixed to 2000 DONE (from pool contract config)
 
 (function () {
   // ====== CONFIG ======
