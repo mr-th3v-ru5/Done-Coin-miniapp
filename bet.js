@@ -6,18 +6,18 @@
 // - Simple BTC/USDT line chart
 // - External "Swap $DONE on Uniswap" button + copyable DONE CA
 // - Auto refresh DONE pool every 30s by reading DONE balance of pool contract
-// - Minimum bet fixed to 2000 DONE (from pool contract config)
+// - Minimum bet fixed to 100 DONE (from pool contract config)
 
 (function () {
   // ====== CONFIG ======
 
   const BASE_CHAIN_ID = 8453;
   const DONE_TOKEN_ADDRESS = "0x3Da0Da9414D02c1E4cc4526a5a24F5eeEbfCEAd4";
-  const BET_CONTRACT_ADDRESS = "0xA24f111Ac03D9b03fFd9E04bD7A18e65f6bfddd7";
+  const BET_CONTRACT_ADDRESS = "0xF82C9614922065a9b684E14e7Ede87Ad0F8b5bb2";
   // Kontrak pool lama yang kamu kirim (DoneBet)
-  const POOL_CONTRACT_ADDRESS = "0xa24F111Ac03D9B03fFD9E04bD7A18E65F6BFdDd7";
-  // Minimum bet berdasarkan konfigurasi kontrak pool: 2000 DONE
-  const MIN_BET_DONE = "2000";
+  const POOL_CONTRACT_ADDRESS = BET_CONTRACT_ADDRESS;
+  // Minimum bet berdasarkan konfigurasi kontrak pool: 100 DONE
+  const MIN_BET_DONE = "100";
 
   // ====== ABIs ======
 
@@ -189,7 +189,7 @@
         els.doneBalance.textContent = human;
       }
 
-      // set minBetRaw fixed 2000 DONE after decimals known
+      // set minBetRaw fixed 100 DONE after decimals known
       state.minBetRaw = ethers.utils
         .parseUnits(MIN_BET_DONE, state.doneDecimals)
         .toString();
@@ -428,7 +428,7 @@
         state.doneDecimals || 18
       );
 
-      // cek minimum bet 2000 DONE
+      // cek minimum bet 100 DONE
       if (state.minBetRaw) {
         const min = ethers.BigNumber.from(state.minBetRaw);
         if (amount.lt(min)) {
