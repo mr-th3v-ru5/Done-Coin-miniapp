@@ -1,39 +1,46 @@
-// bet.js — DONE Bet mini app
+
+// bet.js — DONE Bet mini app (clean on-chain version)
 // - Connect wallet on Base
-// - Place bet using DoneBtcPrediction contract
-// - BTC ticker + round timer
-// - Visual entry/close price around each round (frontend only)
-// - Simple BTC/USDT line chart
-// - External "Swap $DONE on Uniswap" button + copyable DONE CA
-// - Auto refresh DONE pool every 30s by reading DONE balance of pool contract
-// - Minimum bet fixed to 2000 DONE (from pool contract config)
+// - Optional sign-message when NOT in Farcaster mini app
+// - Place bet using DoneBtcPrediction contract (current epoch)
+// - BTC price + simple visual round timer (frontend only)
+// - Uses contract minBetAmount + prevents late betting before lockTime
+//
+// This script intentionally DOES NOT call claim()/claimBatch().
+// It only:
+//   - reads pool / round info,
+//   - approves DONE if needed,
+//   - calls placeBet(side, amount).
+//
+// Requires ethers v5 to be available globally.
 
 (function () {
   // ====== CONFIG ======
-
   const BASE_CHAIN_ID = 8453;
   const DONE_TOKEN_ADDRESS = "0x3Da0Da9414D02c1E4cc4526a5a24F5eeEbfCEAd4";
   const BET_CONTRACT_ADDRESS = "0xA24f111Ac03D9b03fFd9E04bD7A18e65f6bfddd7";
-  // Kontrak pool lama yang kamu kirim (DoneBet)
-  const POOL_CONTRACT_ADDRESS = "0xa24F111Ac03D9B03fFD9E04bD7A18E65F6BFdDd7";
-  // Minimum bet berdasarkan konfigurasi kontrak pool: 2000 DONE
-  const MIN_BET_DONE = "2000";
+  const POOL_CONTRACT_ADDRESS = BET_CONTRACT_ADDRESS; // pool == bet contract
+  const MIN_BET_FALLBACK = "2000";
 
   // ====== ABIs ======
-
   const ERC20_ABI = [
-    "function balanceOf(address) view returns (uint256)",
     "function decimals() view returns (uint8)",
-    "function allowance(address owner, address spender) view returns (uint256)",
+    "function balanceOf(address) view returns (uint256)",
+    "function allowance(address,address) view returns (uint256)",
     "function approve(address spender, uint256 amount) returns (bool)"
   ];
 
   const BET_ABI = [
-    "function placeBet(uint8 side, uint256 amount) external"
+    "function minBetAmount() view returns (uint256)",
+    "function feeBps() view returns (uint256)",
+    "function currentEpoch() view returns (uint256)",
+    "function poolBalance() view returns (uint256)",
+    "function rounds(uint256) view returns (uint256 epoch,uint64 startTime,uint64 lockTime,uint64 closeTime,int256 lockPrice,int256 closePrice,uint256 totalUp,uint256 totalDown,uint8 result,bool locked,bool closed,bool feeTaken)",
+    "function getUserBet(uint256,address) view returns (uint256 amount, uint8 position, bool claimed)",
+    "function placeBet(uint8 side,uint256 amount)"
   ];
 
   // ====== STATE ======
-
   const els = {};
   const state = {
     provider: null,
@@ -41,14 +48,11 @@
     address: null,
     doneDecimals: 18,
     doneBalanceRaw: "0",
-    selectedSide: 0,
-    selectedMult: 1.2,
     minBetRaw: null,
-    poolBalanceRaw: null,
-    lastBetVisual: null
+    feeBps: 0,
+    currentEpoch: 0,
+    selectedSide: null // 0=DOWN, 1=UP
   };
-
-  let poolRefreshInterval = null;
 
   const urlParams = new URLSearchParams(window.location.search || "");
   const isMini = urlParams.get("source") === "mini";
@@ -61,285 +65,132 @@
     history: []
   };
 
+  // ====== HELPERS ======
+  function $(id) { return document.getElementById(id); }
+
+  function shortAddr(addr) {
+    if (!addr) return "";
+    return addr.slice(0, 6) + "..." + addr.slice(-4);
+  }
+
+  function formatUnits(bn, decimals) {
+    try {
+      return ethers.utils.formatUnits(bn || 0, decimals).replace(/\.0+$/, "");
+    } catch (e) {
+      return "0";
+    }
+  }
+
+  function parseUnits(numStr, decimals) {
+    return ethers.utils.parseUnits(String(numStr || "0"), decimals);
+  }
+
+  function setStatus(msg, tone) {
+    const el = els.betStatus;
+    if (!el) return;
+    el.textContent = msg || "";
+    el.classList.remove("status-success", "status-error", "status-info");
+    if (tone) el.classList.add(tone);
+  }
+
+  function clearStatus() {
+    const el = els.betStatus;
+    if (!el) return;
+    el.textContent = "";
+    el.classList.remove("status-success", "status-error", "status-info");
+  }
+
   // ====== DOM READY ======
-
   document.addEventListener("DOMContentLoaded", () => {
-    // WALLET / HEADER
-    els.walletAddr = document.getElementById("wallet-addr-bet");
-    els.networkName = document.getElementById("network-name");
-    els.networkPill = document.getElementById("network-pill");
-    els.doneBalance = document.getElementById("done-balance");
-    els.btnConnect = document.getElementById("btn-connect");
-    els.walletHint = document.getElementById("wallet-hint");
+    // wallet + balances
+    els.walletAddress = $("wallet-address");
+    els.walletHint = $("wallet-hint");
+    els.doneBalance = $("done-balance");
+    els.poolInfo = $("pool-info");
+    els.betStatus = $("bet-status");
 
-    // BET UI
-    els.modes = document.querySelectorAll(".mode-chip");
-    els.betAmount = document.getElementById("bet-amount");
+    // round / ticker
+    els.btcPrice = $("btc-price");
+    els.btcChange = $("btc-change");
+    els.roundTimer = $("round-timer");
+
+    // bet selection
+    els.btnUp = $("btn-up");
+    els.btnDown = $("btn-down");
+    els.betAmount = $("bet-amount");
     els.quickAmounts = document.querySelectorAll(".qa");
-    els.minBetHint = document.getElementById("min-bet-hint");
-    els.btnPlaceBet = document.getElementById("btn-place-bet");
-    els.rewardPreview = document.getElementById("reward-preview");
-    els.payoutPreview = document.getElementById("payout-preview");
-    els.poolInfo = document.getElementById("pool-info");
-    els.betStatus = document.getElementById("bet-status");
+    els.minBetHint = $("min-bet-hint");
+    els.btnPlaceBet = $("btn-place-bet");
 
-    // TICKER / ROUND
-    els.btcPrice = document.getElementById("btc-price");
-    els.btcChange = document.getElementById("btc-change");
-    els.roundTimer = document.getElementById("round-timer");
-    els.btnUp = document.getElementById("btn-up");
-    els.btnDown = document.getElementById("btn-down");
+    // visual (optional)
+    els.betDirection = $("bet-direction");
+    els.betEntryPrice = $("bet-entry-price");
+    els.betClosePrice = $("bet-close-price");
 
-    // VISUAL PRICE INFO
-    els.betEntryPrice = document.getElementById("bet-entry-price");
-    els.betClosePrice = document.getElementById("bet-close-price");
-    els.betOutcome = document.getElementById("bet-outcome");
-
-    // BTC CHART
-    els.btcChart = document.getElementById("btc-chart");
-
-    // EXTERNAL SWAP BUTTON + CA COPY
-    els.btnUniswap = document.getElementById("btn-open-swap");
-    els.caCopy = document.getElementById("done-ca-copy");
+    // external swap + CA copy
+    els.btnUniswap = $("btn-open-swap");
+    els.caCopy = $("done-ca-copy");
 
     if (isMini && els.walletHint) {
       els.walletHint.textContent =
         "Mini app: you use the wallet from your Farcaster account. To change wallet, use Farcaster settings.";
     }
 
+    if (els.minBetHint) {
+      els.minBetHint.textContent =
+        `Minimum bet from contract: ${MIN_BET_FALLBACK} DONE`;
+    }
+
     setupWalletHandlers();
     setupBetHandlers();
-    setupRoundButtons();
     setupExternalSwapAndCA();
-    startPriceTicker();
+    startRoundTimerVisual();
+
+    // initial fetch (best effort)
+    refreshOnchainBasics().then(() => {
+      refreshBalances();
+      refreshRoundInfo();
+    });
+    setInterval(refreshOnchainBasics, 30000);
+    setInterval(refreshBalances, 30000);
+    setInterval(refreshRoundInfo, 15000);
   });
 
-  // ====== HELPERS ======
-
-  function setStatus(msg) {
-    if (els.betStatus) els.betStatus.textContent = msg || "";
-  }
-
-  function shortAddr(addr) {
-    if (!addr) return "—";
-    return addr.slice(0, 6) + "…" + addr.slice(-4);
-  }
-
-  async function ensureBaseNetwork(rawProvider) {
-    const provider = rawProvider || (state.provider && state.provider.provider);
-    if (!provider || !provider.request) return;
-
-    const net = await state.provider.getNetwork();
-    const chainId = Number(net.chainId || 0);
-    if (chainId === BASE_CHAIN_ID) return;
-
-    try {
-      await provider.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0x2105" }]
-      });
-    } catch (e) {
-      console.warn("wallet_switchEthereumChain failed:", e);
-      setStatus(
-        "Please switch your wallet to Base (chainId 8453) before betting."
-      );
-      throw e;
-    }
-  }
-
-  async function refreshNetworkInfo() {
-    if (!state.provider) return;
-    try {
-      const net = await state.provider.getNetwork();
-      const chainId = Number(net.chainId || 0);
-      if (els.networkName) {
-        if (chainId === BASE_CHAIN_ID) {
-          els.networkName.textContent = "Base";
-          els.networkPill && els.networkPill.classList.add("ok");
-        } else {
-          els.networkName.textContent = `chainId ${chainId}`;
-          els.networkPill && els.networkPill.classList.add("bad");
-        }
-      }
-    } catch (e) {
-      console.warn("refreshNetworkInfo error:", e);
-    }
-  }
-
-  async function refreshDoneBalance() {
-    if (!state.signer || !state.address) return;
-    try {
-      const erc20 = new ethers.Contract(
-        DONE_TOKEN_ADDRESS,
-        ERC20_ABI,
-        state.signer
-      );
-      const [decimals, balance] = await Promise.all([
-        erc20.decimals(),
-        erc20.balanceOf(state.address)
-      ]);
-      state.doneDecimals = Number(decimals) || 18;
-      state.doneBalanceRaw = balance.toString();
-
-      if (els.doneBalance) {
-        const human = ethers.utils.formatUnits(
-          state.doneBalanceRaw,
-          state.doneDecimals
-        );
-        els.doneBalance.textContent = human;
-      }
-
-      // set minBetRaw fixed 2000 DONE after decimals known
-      state.minBetRaw = ethers.utils
-        .parseUnits(MIN_BET_DONE, state.doneDecimals)
-        .toString();
-      if (els.minBetHint) {
-        els.minBetHint.textContent =
-          `Minimum bet from contract: ${MIN_BET_DONE} DONE`;
-      }
-    } catch (e) {
-      console.warn("refreshDoneBalance error:", e);
-    }
-  }
-
-  async function refreshPoolInfo() {
-    // baca balance DONE milik kontrak pool (0xa24F...)
-    if (!state.signer && !state.provider) return;
-    try {
-      const reader = state.signer || state.provider;
-      const erc20 = new ethers.Contract(DONE_TOKEN_ADDRESS, ERC20_ABI, reader);
-      const pool = await erc20.balanceOf(POOL_CONTRACT_ADDRESS);
-      state.poolBalanceRaw = pool.toString();
-
-      if (els.poolInfo) {
-        const humanPool = ethers.utils.formatUnits(
-          state.poolBalanceRaw,
-          state.doneDecimals || 18
-        );
-        els.poolInfo.textContent =
-          `Pool: ${humanPool} DONE available for payouts`;
-      }
-    } catch (e) {
-      console.warn("refreshPoolInfo error:", e);
-    }
-  }
-
-  async function loadBetConfig() {
-    await refreshPoolInfo();
-  }
-
-  // ====== WALLET & BET ======
-
+  // ====== WALLET ======
   function setupWalletHandlers() {
-    if (els.btnConnect) {
-      els.btnConnect.addEventListener("click", async () => {
-        if (!state.address) {
-          await connectWallet();
-          return;
-        }
-
-        if (isMini) {
-          setStatus(
-            "Wallet is provided by the mini app. To change it, use Farcaster settings."
-          );
-        } else {
-          state.provider = null;
-          state.signer = null;
-          state.address = null;
-          state.doneBalanceRaw = "0";
-          state.minBetRaw = null;
-          state.poolBalanceRaw = null;
-
-          if (poolRefreshInterval) {
-            clearInterval(poolRefreshInterval);
-            poolRefreshInterval = null;
-          }
-
-          if (els.walletAddr) els.walletAddr.textContent = "not connected";
-          if (els.doneBalance) els.doneBalance.textContent = "0.0";
-          if (els.minBetHint)
-            els.minBetHint.textContent = "Minimum bet from contract: —";
-          if (els.poolInfo) els.poolInfo.textContent = "Pool: —";
-
-          els.btnConnect.textContent = "🔗 Connect";
-          els.btnConnect.classList.remove("connected");
-          setStatus("Wallet disconnected. Connect again before betting.");
-        }
-      });
-    }
-  }
-
-  function setupBetHandlers() {
-    if (els.modes && els.modes.length) {
-      els.modes.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          els.modes.forEach((b) => b.classList.remove("active"));
-          btn.classList.add("active");
-          const mult = parseFloat(btn.dataset.mult || "1");
-          const side = parseInt(btn.dataset.side || "0", 10);
-          state.selectedMult = mult;
-          state.selectedSide = side;
-          updatePayoutPreview();
-        });
-      });
-    }
-
-    if (els.quickAmounts && els.quickAmounts.length) {
-      els.quickAmounts.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const p = parseFloat(btn.dataset.perc || "0");
-          if (!state.doneBalanceRaw || !state.doneDecimals) return;
-          const bal = ethers.utils.formatUnits(
-            state.doneBalanceRaw,
-            state.doneDecimals
-          );
-          const numBal = parseFloat(bal);
-          if (!isFinite(numBal) || numBal <= 0) return;
-          const use = (numBal * p) / 100;
-          if (els.betAmount) {
-            els.betAmount.value = use.toFixed(2);
-          }
-          updatePayoutPreview();
-        });
-      });
-    }
-
-    if (els.betAmount) {
-      els.betAmount.addEventListener("input", updatePayoutPreview);
-    }
-
-    if (els.btnPlaceBet) {
-      els.btnPlaceBet.addEventListener("click", placeBetFlow);
-    }
+    const btn = $("btn-connect");
+    if (!btn) return;
+    btn.addEventListener("click", connectWallet);
   }
 
   async function connectWallet() {
-    if (typeof window.ethereum === "undefined") {
-      setStatus("No web3 wallet found (window.ethereum is missing).");
+    if (!window.ethereum) {
+      setStatus("No wallet found. Install MetaMask or a compatible wallet.", "status-error");
       return;
     }
-
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const accounts = await provider.send("eth_requestAccounts", []);
-      const addr = accounts[0];
-
+      const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+      await provider.send("eth_requestAccounts", []);
+      const network = await provider.getNetwork();
+      if (network.chainId !== BASE_CHAIN_ID) {
+        setStatus("Switch network to Base first.", "status-error");
+        try {
+          await provider.send("wallet_switchEthereumChain", [{
+            chainId: ethers.utils.hexValue(BASE_CHAIN_ID)
+          }]);
+        } catch (switchErr) {
+          console.warn("switch chain error", switchErr);
+          return;
+        }
+      }
       state.provider = provider;
       state.signer = provider.getSigner();
-      state.address = addr;
-
-      if (els.walletAddr) els.walletAddr.textContent = shortAddr(addr);
-      if (els.btnConnect) {
-        els.btnConnect.textContent = shortAddr(addr);
-        els.btnConnect.classList.add("connected");
+      state.address = await state.signer.getAddress();
+      if (els.walletAddress) {
+        els.walletAddress.textContent = shortAddr(state.address);
       }
 
-      await ensureBaseNetwork(provider.provider);
-      await refreshNetworkInfo();
-      await refreshDoneBalance();
-      await loadBetConfig();
-
-      // Optional sign-in message (only for non-mini usage)
+      // optional sign-in message (non-mini)
       if (!isMini && state.signer) {
         try {
           const msg =
@@ -351,413 +202,249 @@
         }
       }
 
-      setStatus("Wallet connected. You can now bet.");
-
-      if (poolRefreshInterval) clearInterval(poolRefreshInterval);
-      poolRefreshInterval = setInterval(() => {
-        if (state.signer || state.provider) {
-          refreshPoolInfo();
-        }
-      }, 30000);
+      setStatus("Wallet connected. You can now place bets.", "status-success");
+      await refreshOnchainBasics();
+      await refreshBalances();
+      await refreshRoundInfo();
     } catch (e) {
       console.error(e);
-      setStatus(
-        "Failed to connect wallet: " + (e?.message || "unknown error")
-      );
+      setStatus("Wallet connection failed.", "status-error");
     }
   }
 
-  function updatePayoutPreview() {
-    if (!els.betAmount) return;
-    const rawAmount = els.betAmount.value || "";
-    const num = parseFloat(rawAmount.replace(",", "."));
-    if (!isFinite(num) || num <= 0) {
-      if (els.rewardPreview) els.rewardPreview.textContent = "";
-      if (els.payoutPreview) els.payoutPreview.textContent = "";
-      return;
+  function getContracts() {
+    const signerOrProv = state.signer || state.provider;
+    if (!signerOrProv) return {};
+    const erc20 = new ethers.Contract(DONE_TOKEN_ADDRESS, ERC20_ABI, signerOrProv);
+    const bet = new ethers.Contract(BET_CONTRACT_ADDRESS, BET_ABI, signerOrProv);
+    return { erc20, bet };
+  }
+
+  // ====== ONCHAIN READS ======
+  async function refreshOnchainBasics() {
+    try {
+      const { erc20, bet } = getContracts();
+      if (!erc20 || !bet) return;
+      const [dec, minBetRaw, feeBps, epoch, pool] = await Promise.all([
+        erc20.decimals(),
+        bet.minBetAmount(),
+        bet.feeBps(),
+        bet.currentEpoch(),
+        bet.poolBalance()
+      ]);
+      state.doneDecimals = dec;
+      state.minBetRaw = minBetRaw;
+      state.feeBps = Number(feeBps.toString());
+      state.currentEpoch = Number(epoch.toString());
+      if (els.minBetHint) {
+        const humanMin = formatUnits(minBetRaw, dec);
+        els.minBetHint.textContent = `Minimum bet from contract: ${humanMin} DONE`;
+      }
+      if (els.poolInfo) {
+        els.poolInfo.textContent =
+          `Pool: ${formatUnits(pool, dec)} DONE available for payouts`;
+      }
+    } catch (e) {
+      console.warn("refreshOnchainBasics error", e);
+    }
+  }
+
+  async function refreshBalances() {
+    try {
+      const { erc20 } = getContracts();
+      if (!erc20 || !state.address) return;
+      const bal = await erc20.balanceOf(state.address);
+      state.doneBalanceRaw = bal;
+      if (els.doneBalance) {
+        els.doneBalance.textContent = formatUnits(bal, state.doneDecimals);
+      }
+    } catch (e) {
+      console.warn("refreshBalances error", e);
+    }
+  }
+
+  async function refreshRoundInfo() {
+    try {
+      const { bet } = getContracts();
+      if (!bet) return;
+      const epoch = await bet.currentEpoch();
+      state.currentEpoch = Number(epoch.toString());
+      const r = await bet.rounds(state.currentEpoch);
+
+      const now = Math.floor(Date.now() / 1000);
+      const lockLeft = Math.max(0, Number(r.lockTime) - now);
+      const closeLeft = Math.max(0, Number(r.closeTime) - now);
+
+      if (els.roundTimer) {
+        if (!r.locked) {
+          els.roundTimer.textContent = `${lockLeft}s to lock`;
+        } else if (!r.closed) {
+          els.roundTimer.textContent = `${closeLeft}s to close`;
+        } else {
+          els.roundTimer.textContent = "Round closed";
+        }
+      }
+    } catch (e) {
+      console.warn("refreshRoundInfo error", e);
+    }
+  }
+
+  // ====== BET HANDLERS ======
+  function setupBetHandlers() {
+    if (els.btnUp) els.btnUp.addEventListener("click", () => {
+      state.selectedSide = 1;
+      els.btnUp.classList.add("active");
+      if (els.btnDown) els.btnDown.classList.remove("active");
+      if (els.betDirection) els.betDirection.textContent = "UP";
+    });
+    if (els.btnDown) els.btnDown.addEventListener("click", () => {
+      state.selectedSide = 0;
+      els.btnDown.classList.add("active");
+      if (els.btnUp) els.btnUp.classList.remove("active");
+      if (els.betDirection) els.betDirection.textContent = "DOWN";
+    });
+
+    if (els.quickAmounts) {
+      els.quickAmounts.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const pct = parseFloat(btn.dataset.pct || "0");
+          if (!state.doneBalanceRaw || pct <= 0) return;
+          const bal = parseFloat(formatUnits(state.doneBalanceRaw, state.doneDecimals));
+          const v = Math.floor((bal * pct) / 100);
+          if (els.betAmount) els.betAmount.value = v.toString();
+        });
+      });
     }
 
-    if (els.rewardPreview) {
-      els.rewardPreview.textContent =
-        "Estimated reward (without principal) depends on the on-chain pool and winners of this round.";
-    }
-    if (els.payoutPreview) {
-      els.payoutPreview.textContent =
-        "Final payout (principal + reward) is calculated and sent automatically by the DoneBtcPrediction smart contract after the round is closed.";
+    if (els.btnPlaceBet) {
+      els.btnPlaceBet.addEventListener("click", placeBetFlow);
     }
   }
 
   async function placeBetFlow() {
-    if (!state.signer || !state.address) {
-      setStatus("Connect your wallet first.");
-      return;
-    }
-
-    if (state.selectedSide !== 0 && state.selectedSide !== 1) {
-      setStatus("Choose UP or DOWN before placing a bet.");
-      return;
-    }
-
-    const rawAmount = (els.betAmount && els.betAmount.value) || "";
-    const num = parseFloat(rawAmount.replace(",", "."));
-    if (!isFinite(num) || num <= 0) {
-      setStatus("Enter a valid $DONE amount.");
-      return;
-    }
-
-    if (priceState.lastPrice && isFinite(priceState.lastPrice)) {
-      state.lastBetVisual = {
-        side: state.selectedSide || 0,
-        entryPrice: priceState.lastPrice,
-        resolved: false
-      };
-      if (els.betEntryPrice) {
-        els.betEntryPrice.textContent = priceState.lastPrice.toFixed(2);
-      }
-      if (els.betClosePrice) {
-        els.betClosePrice.textContent = "—";
-      }
-      if (els.betOutcome) {
-        els.betOutcome.textContent = "Waiting for round close…";
-        els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
-      }
-    }
-
     try {
-      const amount = ethers.utils.parseUnits(
-        rawAmount.replace(",", "."),
-        state.doneDecimals || 18
-      );
-
-      // cek minimum bet 2000 DONE
-      if (state.minBetRaw) {
-        const min = ethers.BigNumber.from(state.minBetRaw);
-        if (amount.lt(min)) {
-          setStatus(`Bet amount is below minimum: ${MIN_BET_DONE} DONE`);
-          return;
-        }
+      if (!state.signer || !state.address) {
+        setStatus("Connect your wallet first.", "status-error");
+        return;
+      }
+      if (state.selectedSide !== 0 && state.selectedSide !== 1) {
+        setStatus("Choose UP or DOWN before placing a bet.", "status-error");
+        return;
       }
 
-      // cek balance user
-      if (state.doneBalanceRaw) {
-        const bal = ethers.BigNumber.from(state.doneBalanceRaw);
-        if (bal.lt(amount)) {
-          const humanBal = ethers.utils.formatUnits(
-            state.doneBalanceRaw,
-            state.doneDecimals || 18
-          );
-          setStatus(
-            `Your $DONE balance (${humanBal}) is lower than the bet amount.`
-          );
-          return;
-        }
+      const raw = (els.betAmount && els.betAmount.value) || "";
+      const num = parseFloat(raw.replace(",", "."));
+      if (!isFinite(num) || num <= 0) {
+        setStatus("Enter a valid $DONE amount.", "status-error");
+        return;
       }
 
-      // cek pool cukup
-      if (state.poolBalanceRaw) {
-        const pool = ethers.BigNumber.from(state.poolBalanceRaw);
-        if (pool.isZero()) {
-          setStatus(
-            "Pool is empty (0 DONE). Please wait until the pool contract is funded before betting."
-          );
-          return;
-        }
-        if (amount.gt(pool)) {
-          const humanPool = ethers.utils.formatUnits(
-            state.poolBalanceRaw,
-            state.doneDecimals || 18
-          );
-          setStatus(
-            `Bet amount is larger than pool balance (${humanPool} DONE). Try a smaller bet.`
-          );
-          return;
-        }
+      const amount = parseUnits(num, state.doneDecimals);
+
+      if (state.minBetRaw && amount.lt(state.minBetRaw)) {
+        const min = formatUnits(state.minBetRaw, state.doneDecimals);
+        setStatus(`Minimum bet is ${min} DONE.`, "status-error");
+        return;
       }
 
-      const erc20 = new ethers.Contract(
-        DONE_TOKEN_ADDRESS,
-        ERC20_ABI,
-        state.signer
-      );
-      const bet = new ethers.Contract(
-        BET_CONTRACT_ADDRESS,
-        BET_ABI,
-        state.signer
-      );
+      const { erc20, bet } = getContracts();
+      if (!erc20 || !bet) {
+        setStatus("Wallet contracts not ready.", "status-error");
+        return;
+      }
 
-      setStatus("Checking $DONE allowance for bet contract...");
-      let allowance = await erc20.allowance(
-        state.address,
-        BET_CONTRACT_ADDRESS
-      );
+      // check round window
+      const r = await bet.rounds(state.currentEpoch);
+      const now = Math.floor(Date.now() / 1000);
+      if (Number(r.startTime) === 0) {
+        setStatus("Round not started yet.", "status-error");
+        return;
+      }
+      if (now >= Number(r.lockTime)) {
+        setStatus("Betting closed for this round. Wait for the next round.", "status-error");
+        return;
+      }
 
+      // already bet this epoch?
+      const binfo = await bet.getUserBet(state.currentEpoch, state.address);
+      if (!ethers.BigNumber.from(binfo.amount || 0).isZero()) {
+        setStatus("You already placed a bet in this epoch.", "status-error");
+        return;
+      }
+
+      // balance
+      const bal = await erc20.balanceOf(state.address);
+      if (bal.lt(amount)) {
+        setStatus(
+          `Your $DONE balance (${formatUnits(bal, state.doneDecimals)}) is lower than the bet amount.`,
+          "status-error"
+        );
+        return;
+      }
+
+      // allowance
+      const allowance = await erc20.allowance(state.address, BET_CONTRACT_ADDRESS);
       if (allowance.lt(amount)) {
-        setStatus(
-          "Allowance is too low. Sending approve transaction (max allowance)..."
-        );
-        const txApprove = await erc20.approve(
-          BET_CONTRACT_ADDRESS,
-          ethers.constants.MaxUint256
-        );
+        setStatus("Approving DONE for the bet…", "status-info");
+        const txApprove = await erc20.approve(BET_CONTRACT_ADDRESS, amount);
         await txApprove.wait();
-
-        allowance = await erc20.allowance(
-          state.address,
-          BET_CONTRACT_ADDRESS
-        );
-        if (allowance.lt(amount)) {
-          setStatus(
-            "Allowance is still low after approve. Please re-check on BaseScan."
-          );
-          return;
-        }
-
-        setStatus("Approve confirmed. Sending bet transaction...");
-      } else {
-        setStatus("Allowance OK. Sending bet transaction...");
       }
 
-      if (els.btnPlaceBet) {
-        els.btnPlaceBet.classList.add("bet-pending");
-      }
+      // place bet
+      setStatus("Sending bet transaction…", "status-info");
+      const tx = await bet.placeBet(state.selectedSide, amount);
+      await tx.wait();
+      setStatus("✅ Bet confirmed on-chain for this epoch.", "status-success");
 
-      const side = state.selectedSide || 0;
-      const tx = await bet.placeBet(side, amount);
-      setStatus("Bet tx sent: " + tx.hash + " (waiting for confirmation)…");
-
-      const receipt = await tx.wait();
-      if (els.btnPlaceBet) els.btnPlaceBet.classList.remove("bet-pending");
-
-      if (receipt.status === 1) {
-        setStatus(
-          "✅ Bet confirmed on-chain. Visual result will show at end of this countdown round."
-        );
-        await refreshDoneBalance();
-        await refreshPoolInfo();
-        if (els.btnPlaceBet) {
-          els.btnPlaceBet.classList.add("bet-ok");
-          setTimeout(() => {
-            els.btnPlaceBet.classList.remove("bet-ok");
-          }, 600);
-        }
-      } else {
-        setStatus("Bet transaction failed or reverted by the network.");
-      }
+      await refreshBalances();
+      await refreshOnchainBasics();
+      await refreshRoundInfo();
     } catch (e) {
       console.error(e);
-      if (els.btnPlaceBet) els.btnPlaceBet.classList.remove("bet-pending");
-
-      let msg =
-        e?.reason ||
-        (e?.data && e.data.message) ||
-        (e?.error && e.error.message) ||
-        e?.message ||
-        "unknown error";
-
-      if (typeof msg === "string") {
-        if (msg.toLowerCase().includes("execution reverted")) {
-          msg =
-            "execution reverted — this usually means the contract conditions are not met (round locked, pool empty, or bet size not allowed). Check pool/min bet and try again.";
-        } else if (msg.includes("insufficient allowance")) {
-          msg =
-            "insufficient allowance — make sure your approve transaction is confirmed, then try again.";
-        }
-      }
-
-      setStatus("Bet failed: " + msg);
-    }
-  }
-
-  // ====== EXTERNAL SWAP BUTTON + COPY CA ======
-
-  function setupExternalSwapAndCA() {
-    if (els.btnUniswap) {
-      els.btnUniswap.textContent = "Swap $DONE on Uniswap";
-      els.btnUniswap.addEventListener("click", () => {
-        const url =
-          "https://app.uniswap.org/swap?chain=base&outputCurrency=" +
-          DONE_TOKEN_ADDRESS;
-        window.open(url, "_blank");
-      });
-    }
-
-    if (els.caCopy) {
-      els.caCopy.textContent = DONE_TOKEN_ADDRESS;
-      els.caCopy.style.cursor = "pointer";
-      els.caCopy.title = "Click to copy $DONE contract address";
-
-      els.caCopy.addEventListener("click", async () => {
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(DONE_TOKEN_ADDRESS);
-          }
-          const original = DONE_TOKEN_ADDRESS;
-          els.caCopy.textContent = "Copied!";
-          els.caCopy.classList.add("copied");
-          setTimeout(() => {
-            els.caCopy.textContent = original;
-            els.caCopy.classList.remove("copied");
-          }, 1000);
-        } catch (e) {
-          alert("DONE token contract address:\n" + DONE_TOKEN_ADDRESS);
-        }
-      });
-    }
-  }
-
-  // ====== ROUND CONTROLS ======
-
-  function setupRoundButtons() {
-    if (!els.btnUp || !els.btnDown) return;
-    els.btnUp.addEventListener("click", () => {
-      state.selectedSide = 1;
-      els.btnUp.classList.add("active");
-      els.btnDown.classList.remove("active");
-    });
-    els.btnDown.addEventListener("click", () => {
-      state.selectedSide = 0;
-      els.btnDown.classList.add("active");
-      els.btnUp.classList.remove("active");
-    });
-  }
-
-  function resolveVisualBet() {
-    if (!state.lastBetVisual || state.lastBetVisual.resolved) return;
-    const entry = state.lastBetVisual.entryPrice;
-    const close = priceState.lastPrice;
-    if (!entry || !close || !els.betOutcome) return;
-
-    if (els.betClosePrice) {
-      els.betClosePrice.textContent = close.toFixed(2);
-    }
-
-    let msg;
-    let cls;
-    if (
-      (close > entry && state.lastBetVisual.side === 1) ||
-      (close < entry && state.lastBetVisual.side === 0)
-    ) {
-      msg = "✅ Your bet direction is correct based on BTC price (visual only).";
-      cls = "bet-win";
-    } else if (close === entry) {
-      msg = "⏸ BTC price closed at the same level as your entry.";
-      cls = "bet-draw";
-    } else {
-      msg = "❌ Your bet direction is wrong based on BTC price (visual only).";
-      cls = "bet-lose";
-    }
-
-    els.betOutcome.textContent = msg;
-    els.betOutcome.classList.remove("bet-win", "bet-lose", "bet-draw");
-    els.betOutcome.classList.add(cls);
-    state.lastBetVisual.resolved = true;
-  }
-
-  // ====== BTC TICKER, CHART & ROUND TIMER ======
-
-  function startPriceTicker() {
-    updateBtcPrice();
-    setInterval(updateBtcPrice, 8000);
-    startRoundTimer();
-  }
-
-  async function updateBtcPrice() {
-    if (!els.btcPrice && !els.btcChange && !els.btcChart) return;
-    try {
-      const res = await fetch(
-        "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-      );
-      const data = await res.json();
-      const price = parseFloat(data.price || "0");
-      if (!isFinite(price) || price <= 0) return;
-
-      if (priceState.lastPrice !== null) {
-        const diff = price - priceState.lastPrice;
-        const pct = (diff / priceState.lastPrice) * 100;
-        priceState.lastChangePct = pct;
-      }
-      priceState.lastPrice = price;
-
-      if (els.btcPrice) {
-        els.btcPrice.textContent = price.toFixed(2);
-      }
-      if (els.btcChange) {
-        const pct = priceState.lastChangePct;
-        els.btcChange.textContent =
-          (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
-        els.btcChange.classList.remove("up", "down", "neutral");
-        els.btcChange.classList.add(
-          pct > 0.05 ? "up" : pct < -0.05 ? "down" : "neutral"
+      const msg = (e && e.error && e.error.message) || e.message || String(e);
+      if (/execution reverted/i.test(msg)) {
+        setStatus(
+          "Bet failed: execution reverted — likely betting window closed, already bet, or min bet not met.",
+          "status-error"
         );
+      } else {
+        setStatus("Bet failed: " + msg, "status-error");
       }
-
-      priceState.history.push(price);
-      if (priceState.history.length > 60) priceState.history.shift();
-      renderBtcChart();
-    } catch (e) {
-      console.warn("updateBtcPrice error:", e);
     }
   }
 
-  function renderBtcChart() {
-    if (!els.btcChart || !els.btcChart.getContext) return;
-    const ctx = els.btcChart.getContext("2d");
-    const width = els.btcChart.width || els.btcChart.clientWidth || 320;
-    const height = els.btcChart.height || els.btcChart.clientHeight || 140;
-
-    const data = priceState.history || [];
-    if (!data.length) {
-      ctx.clearRect(0, 0, width, height);
-      return;
-    }
-
-    const min = Math.min.apply(null, data);
-    const max = Math.max.apply(null, data);
-    const pad = (max - min) * 0.1 || 1;
-    const low = min - pad;
-    const high = max + pad;
-
-    ctx.clearRect(0, 0, width, height);
-
-    ctx.fillStyle = "#05060a";
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.strokeStyle = "#2c2f3a";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, height - 0.5);
-    ctx.lineTo(width, height - 0.5);
-    ctx.stroke();
-
-    ctx.strokeStyle = "#00d17a";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    data.forEach((p, i) => {
-      const x = (i / Math.max(data.length - 1, 1)) * width;
-      const t = (p - low) / (high - low);
-      const y = height - t * (height - 8) - 4;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  }
-
-  function startRoundTimer() {
+  // ====== VISUAL ROUND TIMER (frontend only, not authoritative) ======
+  function startRoundTimerVisual() {
     if (!els.roundTimer) return;
     priceState.timeLeft = priceState.roundSeconds;
-    updateRoundTimer();
     setInterval(() => {
       priceState.timeLeft--;
       if (priceState.timeLeft <= 0) {
-        resolveVisualBet();
         priceState.timeLeft = priceState.roundSeconds;
       }
-      updateRoundTimer();
     }, 1000);
   }
 
-  function updateRoundTimer() {
-    if (!els.roundTimer) return;
-    els.roundTimer.textContent = priceState.timeLeft + "s";
+  // ====== EXTERNAL SWAP & CA ======
+  function setupExternalSwapAndCA() {
+    if (els.btnUniswap) {
+      els.btnUniswap.addEventListener("click", () => {
+        const url = `https://app.uniswap.org/swap?chain=base&outputCurrency=${DONE_TOKEN_ADDRESS}`;
+        window.open(url, "_blank");
+      });
+    }
+    if (els.caCopy) {
+      els.caCopy.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(DONE_TOKEN_ADDRESS);
+          els.caCopy.textContent = "Copied!";
+          setTimeout(() => {
+            els.caCopy.textContent = "Copy DONE CA";
+          }, 800);
+        } catch (e) {
+          console.warn("Clipboard error", e);
+        }
+      });
+    }
   }
 })();
