@@ -103,7 +103,8 @@
   // ====== DOM READY ======
   document.addEventListener("DOMContentLoaded", () => {
     // wallet + balances
-    els.walletAddress = $("wallet-address");
+    // Support both id="wallet-addr" (current HTML) and id="wallet-address" (older markup)
+    els.walletAddress = $("wallet-addr") || $("wallet-address");
     els.walletHint = $("wallet-hint");
     els.doneBalance = $("done-balance");
     els.poolInfo = $("pool-info");
@@ -186,8 +187,13 @@
       state.provider = provider;
       state.signer = provider.getSigner();
       state.address = await state.signer.getAddress();
+
+      // update wallet label in UI (supports wallet-addr / wallet-address)
       if (els.walletAddress) {
         els.walletAddress.textContent = shortAddr(state.address);
+      } else {
+        const alt = document.getElementById("wallet-addr") || document.getElementById("wallet-address");
+        if (alt) alt.textContent = shortAddr(state.address);
       }
 
       // optional sign-in message (non-mini)
