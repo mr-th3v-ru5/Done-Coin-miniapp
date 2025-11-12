@@ -828,55 +828,235 @@ body {
   }
 }
 
+/* === Simplified mini app skin (10s-style) === */
+.bet-mini.bet-body {
+  background: radial-gradient(circle at top, #050816 0, #020308 55%, #01010a 100%);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", sans-serif;
+}
 
-/* BTC mini chart */
-.btc-chart {
-  grid-column: 1 / -1;
-  margin-top: 8px;
-  width: 100%;
-  height: 140px;
-  border-radius: 12px;
+.bet-mini .bet-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.bet-mini .bet-card {
+  width: min(420px, 100%);
+  border-radius: 28px;
+  padding: 16px 14px 18px;
+  background: radial-gradient(circle at top, #050816 0, #020617 40%, #020617 100%);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.9);
+}
+
+/* header strip */
+.bet-mini .bet-header {
+  padding: 8px 10px;
+  border-radius: 18px;
+  background: radial-gradient(circle at top left, #020617 0, #030712 85%);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  margin-bottom: 10px;
+}
+
+.bet-mini .bet-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #ef4444;
+  font-weight: 800;
+}
+
+.bet-mini .bet-title {
+  font-size: 16px;
+}
+.bet-mini .bet-subtitle {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.bet-mini .chip-network {
   background: #020617;
-  border: 1px solid rgba(30, 64, 175, 0.5);
-  display: block;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  padding: 2px 8px;
+  font-size: 11px;
 }
 
-/* Last round visual info */
-.round-visual {
+.bet-mini .chip-wallet {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* main screen panel */
+.bet-mini .price-card {
   margin-top: 6px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 18px;
+  padding: 10px 10px 12px;
+  background: radial-gradient(circle at top, #020617 0, #020617 90%);
+  border: 1px solid rgba(75, 85, 99, 0.7);
 }
 
-.bet-outcome-text {
-  display: none;
+.bet-mini .price-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #9ca3af;
 }
 
-/* win / lose / draw colors + subtle animations */
-.bet-win {
-  color: #4ade80;
-  animation: bet-win-pop 0.6s ease-out;
+.bet-mini #btc-price {
+  font-size: 16px;
+  font-weight: 600;
 }
 
-.bet-lose {
+.bet-mini #btc-change {
+  font-size: 11px;
+}
+
+.bet-mini #round-timer {
+  font-size: 11px;
   color: #f97373;
-  animation: bet-lose-pop 0.6s ease-out;
 }
 
-.bet-draw {
-  color: #e5e7eb;
+.bet-mini #btc-chart {
+  margin-top: 6px;
+  height: 90px;
 }
 
-@keyframes bet-win-pop {
-  0% { transform: scale(0.97); opacity: 0.5; }
-  60% { transform: scale(1.03); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+/* wallet & amount sections flatten */
+.bet-mini .bet-section {
+  background: transparent;
+  border: none;
+  padding: 8px 0 6px;
+  margin-bottom: 4px;
 }
 
-@keyframes bet-lose-pop {
-  0% { transform: scale(0.97); opacity: 0.5; }
-  60% { transform: scale(1.03); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+.bet-mini .bet-section-head {
+  margin-bottom: 4px;
+}
+
+.bet-mini .bet-section-title {
+  font-size: 12px;
+}
+
+.bet-mini .bet-row-label {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.bet-mini .bet-row-value {
+  font-size: 12px;
+}
+
+/* bet mode row */
+.bet-mini .bet-modes {
+  display: flex;
+  gap: 6px;
+}
+
+.bet-mini .mode-chip {
+  flex: 1 1 0;
+  padding: 6px 6px;
+  border-radius: 16px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  font-size: 11px;
+  background: #020617;
+}
+
+.bet-mini .mode-chip.active {
+  background: radial-gradient(circle at top, #1d4ed8 0, #1d4ed8 30%, #1e293b 100%);
+  border-color: rgba(37, 99, 235, 0.9);
+}
+
+/* amount input */
+.bet-mini .bet-amount-group {
+  margin-top: 4px;
+}
+
+.bet-mini .bet-amount-group input {
+  border-radius: 999px;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.bet-mini .quick-amounts {
+  margin-top: 6px;
+}
+
+.bet-mini .quick-amounts button {
+  font-size: 11px;
+  border-radius: 999px;
+}
+
+/* last round visual simplified */
+.bet-mini .round-card {
+  border-radius: 18px;
+  padding: 10px 10px 10px;
+  background: radial-gradient(circle at top, #020617 0, #020617 90%);
+  border: 1px solid rgba(55, 65, 81, 0.8);
+}
+
+.bet-mini #bet-outcome {
+  margin-top: 6px;
+  font-size: 13px;
+  text-align: center;
+  color: #f97373;
+}
+
+/* big UP / DOWN buttons */
+.bet-mini .round-choice {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.bet-mini .round-btn {
+  flex: 1 1 0;
+  padding: 14px 0;
+  border-radius: 18px;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: #020617;
+  box-shadow: 0 6px 0 #020617;
+}
+
+.bet-mini .round-btn.up {
+  color: #4ade80;
+}
+
+.bet-mini .round-btn.down {
+  color: #f97373;
+}
+
+.bet-mini .round-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* primary action button */
+.bet-mini .btn-primary {
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 999px;
+  padding: 11px 0;
+  font-size: 14px;
+}
+
+/* status / footer */
+.bet-mini .status-line {
+  margin-top: 6px;
+  min-height: 16px;
+  font-size: 11px;
+}
+
+.bet-mini .bet-footer {
+  margin-top: 10px;
+  font-size: 10px;
+  color: #6b7280;
+  text-align: center;
 }
